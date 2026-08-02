@@ -153,6 +153,33 @@ function videoFiles(): array
 }
 
 /**
+ * How many videos carry each tag and each author, in one pass over the store.
+ *
+ * @return array{tags: array<string, int>, authors: array<string, int>}
+ */
+function metaCounts(): array
+{
+    $counts = array('tags' => array(), 'authors' => array());
+
+    foreach (metaStore()->ids() as $vid) {
+        $meta = loadMeta($vid);
+
+        $values = array('tags' => $meta->tags, 'authors' => $meta->authors);
+
+        foreach ($values as $field => $names) {
+            foreach ($names as $name) {
+                $counts[$field][$name] = ($counts[$field][$name] ?? 0) + 1;
+            }
+        }
+    }
+
+    ksort($counts['tags']);
+    ksort($counts['authors']);
+
+    return $counts;
+}
+
+/**
  * Render a 0-5 rating as star images.
  */
 function renderRating(int $rate): string
