@@ -24,62 +24,62 @@ $alle = glob("*.*");
 $sauthor = $_GET['author'];
 $stag = $_GET['tag'];
 $srate = $_GET['rate'];
-$match = Array();
+$match = array();
 
 
 foreach ($alle as $vid) {
-	
-	$data = file_get_contents("data/" . $vid . ".data");
-	$rrate = substr($data, 0, 1);
-	$data = substr($data, 2);
-	
-	$rtags = Array();
-	$tags = substr($data, 0, strpos($data, ";")) . ":";
-	
-	while (strpos($tags, ":")!=0) {
-		
-		array_push($rtags, substr($tags, 0, strpos($tags, ":")));
-		$tags = substr($tags, strpos($tags, ":")+1);
-		
-	}
-	
-	$data = substr($data, strpos($data, ";")+1);
-	
-	$authors = substr($data, 0, strpos($data, ";")) . ":";
-	$rauthors = Array();
 
-	while (strpos($authors, ":")!=0) {
+    $data = file_get_contents("data/" . $vid . ".data");
+    $rrate = substr($data, 0, 1);
+    $data = substr($data, 2);
 
-		Array_Push($rauthors, substr($authors, 0, strpos($authors, ":")));
+    $rtags = array();
+    $tags = substr($data, 0, strpos($data, ";")) . ":";
 
-		$authors = substr($authors, strpos($authors, ":")+1);
+    while (strpos($tags, ":") != 0) {
 
-	}
+        array_push($rtags, substr($tags, 0, strpos($tags, ":")));
+        $tags = substr($tags, strpos($tags, ":") + 1);
 
-	$correct = true;
+    }
 
-	if (!(in_array($sauthor, $rauthors) or $sauthor == "")) {
-		
-		$correct = false;
-		
-	}
-	if (!(in_array($stag, $rtags) or $stag == "")) {
-		
-		$correct = false;
-		
-	}
-	if (!($srate == $rrate or $srate == "")) {
-		
-		$correct = false;
-		
-	}
-	
-	if ($correct) {
-		
-		array_push($match, $vid);
-		
-	}
-	
+    $data = substr($data, strpos($data, ";") + 1);
+
+    $authors = substr($data, 0, strpos($data, ";")) . ":";
+    $rauthors = array();
+
+    while (strpos($authors, ":") != 0) {
+
+        Array_Push($rauthors, substr($authors, 0, strpos($authors, ":")));
+
+        $authors = substr($authors, strpos($authors, ":") + 1);
+
+    }
+
+    $correct = true;
+
+    if (!(in_array($sauthor, $rauthors) or $sauthor == "")) {
+
+        $correct = false;
+
+    }
+    if (!(in_array($stag, $rtags) or $stag == "")) {
+
+        $correct = false;
+
+    }
+    if (!($srate == $rrate or $srate == "")) {
+
+        $correct = false;
+
+    }
+
+    if ($correct) {
+
+        array_push($match, $vid);
+
+    }
+
 }
 
 //normal index
@@ -92,29 +92,28 @@ foreach ($alle as $vid) {
 
 if ($_GET['u'] == 'a') {
 
-	$sen = 'a';
+    $sen = 'a';
+
+} else {
+
+    $sen = 'd';
 
 }
-else {
-	
-	$sen = 'd';
-	
-}
-	
+
 $cols = $_GET['l'];
 
 if ($cols == 0) {
-	
-	$cols = 4;
-	
+
+    $cols = 4;
+
 }
 
 $siz = $_GET['s'];
 
 if ($siz == 0) {
-	
-	$siz = 20;
-	
+
+    $siz = 20;
+
 }
 
 echo '
@@ -123,43 +122,41 @@ echo '
 <input name="l" type="number" placeholder="Size of line" value="' . $cols . '">
 <p>';
 if ($sen == 'a') {
-	
-	echo '
+
+    echo '
 <select style="height:1.4em;width:8em;" name="u" value="' . $sen . '">
 	<option value="a" selected>Ascending</option>
 	<option value="d">Descending</option>
 </select>';
-	
-}
-else {
-	
-	echo '
+
+} else {
+
+    echo '
 <select style="height:1.4em;width:8em;" name="u" value="' . $sen . '">
 	<option value="a">Ascending</option>
 	<option value="d" selected>Descending</option>
 </select>';
-	
+
 }
 echo ' <input style="height:1.4em;width:11.3em;" name="tag" placeholder="Tag" value="' . $_GET['tag'] . '">
 <br>';
 
 if ($_GET["o"] == 1) {
-	
-	echo '
+
+    echo '
 <select style="height:1.4em;width:8em;" name="o" value="' . $_GET["o"] . '">
 	<option value="0">Name</option>
 	<option value="1" selected>Date</option>
 </select>';
-	
-}
-else {
-	
-	echo '
+
+} else {
+
+    echo '
 <select style="height:1.4em;width:8em;" name="o" value="' . $_GET["o"] . '">
 	<option value="0" selected>Name</option>
 	<option value="1">Date</option>
 </select>';
-	
+
 }
 
 echo '
@@ -202,90 +199,91 @@ Page:
 $glb = $match;
 
 if ($_GET['o'] == 1) {
-	
-	usort($glb, function($a, $b) {return filemtime($a) < filemtime($b);});
-	
+
+    usort($glb, function ($a, $b) {
+        return filemtime($a) < filemtime($b);
+    });
+
 }
 
 if ($sen == 'd') {
 
-	$glb = array_reverse($glb);
+    $glb = array_reverse($glb);
 
-}	
+}
 
 $count = 0;
 
 echo '<center><table style="table-layout: fixed;width:100%;"><tr>';
 
-for ($i = $siz*$_GET['p']; $i < $siz*$_GET['p'] + $siz; $i++) {
-	
-	$vid = $glb[$i];
-	
-	//get rate
-	
-	$data = file_get_contents("data/" . $vid . ".data");
-	$rate = substr($data, 0, 1);
-	$data = substr($data, 2);
-	
-	$ratext = "";
-	
-	for ($j=0;$j<5;$j++) {
-		
-		if ($rate!=""){
-		
-			if ($rate == 0){
+for ($i = $siz * $_GET['p']; $i < $siz * $_GET['p'] + $siz; $i++) {
 
-			$ratext .= '<img style="width:0.75em;" src="thumbs/rating-off.png">';
+    $vid = $glb[$i];
 
-			}
-			else {
+    //get rate
 
-				$ratext .= '<img style="width:0.75em;" src="thumbs/rating-on.png">';
-				$rate -= 1;
-				
-			}
-		
-		}
-		
-	}
-	
-	//get tags
-	
-	$tags = substr($data, 0, strpos($data, ";")) . ":";
-	$tegxt = "";
-	
-	while (strpos($tags, ":")!=0) {
-		
-		$tegxt .= '<a href="search.php?tag=' . substr($tags, 0, strpos($tags, ":")) . '">' . substr($tags, 0, strpos($tags, ":")) . "</a>, ";
-		
-		$tags = substr($tags, strpos($tags, ":")+1);
-		
-		
-	}
-	
-	$tegxt = substr($tegxt, 0, strlen($tegxt)-2);
-	
-	$data = substr($data, strpos($data, ";")+1);
-	
-	//get authors
+    $data = file_get_contents("data/" . $vid . ".data");
+    $rate = substr($data, 0, 1);
+    $data = substr($data, 2);
 
-	$authors = substr($data, 0, strpos($data, ";")) . ":";
-	$autxt = "";
+    $ratext = "";
 
-	while (strpos($authors, ":")!=0) {
+    for ($j = 0;$j < 5;$j++) {
 
-		$autxt .= '<a href="search.php?author=' . substr($authors, 0, strpos($authors, ":")) . '">' . substr($authors, 0, strpos($authors, ":")) . "</a>, ";
+        if ($rate != "") {
 
-		$authors = substr($authors, strpos($authors, ":")+1);
+            if ($rate == 0) {
+
+                $ratext .= '<img style="width:0.75em;" src="thumbs/rating-off.png">';
+
+            } else {
+
+                $ratext .= '<img style="width:0.75em;" src="thumbs/rating-on.png">';
+                $rate -= 1;
+
+            }
+
+        }
+
+    }
+
+    //get tags
+
+    $tags = substr($data, 0, strpos($data, ";")) . ":";
+    $tegxt = "";
+
+    while (strpos($tags, ":") != 0) {
+
+        $tegxt .= '<a href="search.php?tag=' . substr($tags, 0, strpos($tags, ":")) . '">' . substr($tags, 0, strpos($tags, ":")) . "</a>, ";
+
+        $tags = substr($tags, strpos($tags, ":") + 1);
 
 
-	}
+    }
 
-	$autxt = substr($autxt, 0, strlen($autxt)-2);
-	
-	//echo all
-	
-	echo '
+    $tegxt = substr($tegxt, 0, strlen($tegxt) - 2);
+
+    $data = substr($data, strpos($data, ";") + 1);
+
+    //get authors
+
+    $authors = substr($data, 0, strpos($data, ";")) . ":";
+    $autxt = "";
+
+    while (strpos($authors, ":") != 0) {
+
+        $autxt .= '<a href="search.php?author=' . substr($authors, 0, strpos($authors, ":")) . '">' . substr($authors, 0, strpos($authors, ":")) . "</a>, ";
+
+        $authors = substr($authors, strpos($authors, ":") + 1);
+
+
+    }
+
+    $autxt = substr($autxt, 0, strlen($autxt) - 2);
+
+    //echo all
+
+    echo '
 	
 	<td style="position:relative;border-style:solid;border-color:FFFFFF;border-size:1px;background-color:BBBBBB;text-align:center;padding:2px;">
 		<center>
@@ -307,16 +305,16 @@ for ($i = $siz*$_GET['p']; $i < $siz*$_GET['p'] + $siz; $i++) {
 	</td>
 	
 	';
-	
-	$count += 1;
-	
-	if ($count == $cols) {
-		
-		echo '</tr><tr>';
-		$count = 0;
-		
-	}
- 
+
+    $count += 1;
+
+    if ($count == $cols) {
+
+        echo '</tr><tr>';
+        $count = 0;
+
+    }
+
 }
 
 echo '</tr></table></center>';
@@ -331,28 +329,27 @@ echo '
 <input name="l" type="number" placeholder="Size of line" value="' . $cols . '">
 <br>';
 if ($sen == 'a') {
-	
-	echo '
+
+    echo '
 <select name="u" value="' . $sen . '">
 	<option value="a" selected>Ascending</option>
 	<option value="d">Descending</option>
 </select>';
-	
-}
-else {
-	
-	echo '
+
+} else {
+
+    echo '
 <select name="u" value="' . $sen . '">
 	<option value="a">Ascending</option>
 	<option value="d" selected>Descending</option>
 </select>';
-	
+
 }
 echo '<br>';
 
 if ($_GET["o"] == 1) {
-	
-	echo '
+
+    echo '
 <select name="o" value="' . $_GET["o"] . '">
 	<option value="0">Name</option>
 	<option value="1" selected>Date</option>
@@ -361,11 +358,10 @@ if ($_GET["o"] == 1) {
 <input type="submit">
 
 </form>';
-	
-}
-else {
-	
-	echo '
+
+} else {
+
+    echo '
 <select name="o" value="' . $_GET["o"] . '">
 	<option value="0" selected>Name</option>
 	<option value="1">Date</option>
@@ -374,7 +370,7 @@ else {
 <input type="submit">
 
 </form>';
-	
+
 }
 
 echo '
