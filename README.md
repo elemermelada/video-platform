@@ -49,7 +49,9 @@ VPN if it's reachable from anywhere else.
 - **Grid** (`index.php`): each card links to the raw video file (native
   browser playback) and has a ✎ link to the editor. Tag/author links on a
   card re-filter the grid.
-- **Filter form** (sticky bar): `Tags` and `Authors` are comma-separated and
+- **Filter form** (sticky bar): `Search names` is a case-insensitive substring
+  match on the filename — it needs no metadata, so a video with no sidecar yet
+  is findable too. `Tags` and `Authors` are comma-separated and
   conjunctive — a video must carry *all* listed values. `Rating ≥` is a
   floor, not an exact match. Known tags/authors autocomplete via
   `<datalist>` (a small inline script keeps completion working after the
