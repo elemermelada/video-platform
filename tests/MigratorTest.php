@@ -105,4 +105,107 @@ final class MigratorTest extends TempDirTestCase
             $this->migrator->migrate(),
         );
     }
+
+    //the date backfill: stamp sidecars that predate the date field
+
+    public function testBackfillStampsDatelessSidecars(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":3,"tags":["action"],"authors":["nolan"]}');
+
+        $result = $this->migrator->backfillDates($this->stampOf(['clip.mp4' => '2024-05-06']));
+
+        $this->assertSame(['clip.mp4'], $result['stamped']);
+        $this->assertSame([], $result['skipped']);
+
+        $meta = $this->store->load('clip.mp4');
+        $this->assertSame('2024-05-06', $meta->date);
+
+        //the rest of the metadata comes through untouched
+
+        $this->assertSame(3, $meta->rate);
+        $this->assertSame(['action'], $meta->tags);
+        $this->assertSame(['nolan'], $meta->authors);
+    }
+
+    public function testBackfillNeverOverwritesTheStoredDate(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[],"date":"2020-01-02"}');
+
+        $result = $this->migrator->backfillDates($this->stampOf(['clip.mp4' => '2024-05-06']));
+
+        $this->assertSame([], $result['stamped']);
+        $this->assertSame(['clip.mp4'], $result['skipped']);
+        $this->assertSame('2020-01-02', $this->store->load('clip.mp4')->date);
+    }
+
+    public function testBackfillSkipsSidecarsWithNoTimestampToRead(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[]}');
+
+        $result = $this->migrator->backfillDates(function (string $vid): ?int {
+            return null;
+        });
+
+        $this->assertSame([], $result['stamped']);
+        $this->assertSame(['clip.mp4'], $result['skipped']);
+        $this->assertNull($this->store->load('clip.mp4')->date);
+    }
+
+    public function testBackfillDryRunWritesNothing(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[]}');
+
+        $result = $this->migrator->backfillDates(
+            $this->stampOf(['clip.mp4' => '2024-05-06']),
+            dryRun: true,
+        );
+
+        $this->assertSame(['clip.mp4'], $result['stamped']);
+        $this->assertNull($this->store->load('clip.mp4')->date);
+    }
+
+    public function testBackfillIsIdempotent(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[]}');
+
+        $stamps = $this->stampOf(['clip.mp4' => '2024-05-06']);
+
+        $this->migrator->backfillDates($stamps);
+        $second = $this->migrator->backfillDates($stamps);
+
+        $this->assertSame([], $second['stamped']);
+        $this->assertSame(['clip.mp4'], $second['skipped']);
+        $this->assertSame('2024-05-06', $this->store->load('clip.mp4')->date);
+    }
+
+    public function testBackfillLeavesLegacyOnlySidecarsToTheMigration(): void
+    {
+        //no `.json` yet, so there is nothing to stamp: migrate() first
+
+        $this->write('clip.mp4.data', '3:action;nolan;');
+
+        $result = $this->migrator->backfillDates($this->stampOf(['clip.mp4' => '2024-05-06']));
+
+        $this->assertSame(['stamped' => [], 'skipped' => []], $result);
+    }
+
+    /**
+     * A timestamp resolver standing in for the filesystem: video id => date.
+     *
+     * @param array<string, string> $dates
+     *
+     * @return callable(string): ?int
+     */
+    private function stampOf(array $dates): callable
+    {
+        return function (string $vid) use ($dates): ?int {
+            if (!isset($dates[$vid])) {
+                return null;
+            }
+
+            $stamp = strtotime($dates[$vid]);
+
+            return $stamp === false ? null : $stamp;
+        };
+    }
 }
