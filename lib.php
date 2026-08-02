@@ -125,11 +125,183 @@ function gridUrl(string $query = ''): string
     return 'index.php?' . $query;
 }
 
-//nav header shown on every page
+//the one stylesheet: every page embeds it, so there is no asset to fetch and
+//no second place where a colour is defined
+
+function pageStyle(): string
+{
+    return '
+:root {
+	--bg: #111111;
+	--card: #1e1e1e;
+	--sunken: #191919;
+	--border: #2f2f2f;
+	--fg: #e6e6e6;
+	--muted: #9a9a9a;
+	--accent: #ee1111;
+	--gap: 12px;
+	--radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	padding: var(--gap);
+	background: var(--bg);
+	color: var(--fg);
+	font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--fg); text-decoration: none; }
+a:hover { color: var(--accent); }
+
+hr { border: none; border-top: solid 1px var(--border); margin: var(--gap) 0; }
+
+input, select {
+	background: var(--sunken);
+	color: var(--fg);
+	border: solid 1px var(--border);
+	border-radius: 4px;
+	padding: 4px 6px;
+	font: inherit;
+	font-size: 0.9rem;
+}
+
+input[type="submit"] { cursor: pointer; background: var(--card); }
+input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); }
+
+/* one sticky bar carries the nav, the filters and the pager */
+
+.bar {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--gap);
+	margin: calc(-1 * var(--gap)) calc(-1 * var(--gap)) var(--gap);
+	padding: var(--gap);
+	background: var(--card);
+	border-bottom: solid 1px var(--border);
+}
+
+.bar .nav { font-weight: 600; }
+.bar form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.bar .filters { flex: 1 1 auto; }
+.bar .pager { display: flex; align-items: center; gap: 4px; }
+.bar .pager .page { min-width: 2em; text-align: center; color: var(--muted); }
+
+.field-size { width: 6em; }
+.field-rate { width: 5em; }
+.field-text { width: 10em; }
+
+/* the grid: auto-fill tracks, so a card can never stretch a whole row */
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(
+		auto-fill,
+		minmax(max(200px, calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols))), 1fr)
+	);
+	gap: var(--gap);
+	align-items: start;
+}
+
+.card {
+	position: relative;
+	background: var(--card);
+	border: solid 1px var(--border);
+	border-radius: var(--radius);
+	overflow: hidden;
+}
+
+/* fixed 16:9 box: a vertical thumbnail is letterboxed, not made into a tall row */
+
+.card .thumb {
+	display: block;
+	aspect-ratio: 16 / 9;
+	background: #000000;
+}
+
+.card .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.card .body { padding: 8px; }
+
+.card .name {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	word-break: break-word;
+	font-size: 0.9rem;
+}
+
+.card .edit {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	padding: 0 4px;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.55);
+}
+
+.rating { color: #e0b93a; letter-spacing: 1px; font-size: 0.9rem; }
+
+.card .facets {
+	margin-top: 6px;
+	padding-top: 6px;
+	border-top: solid 1px var(--border);
+	color: var(--muted);
+	font-size: 0.78rem;
+}
+
+.card .facets a { color: var(--muted); }
+.card .facets a:hover { color: var(--accent); }
+
+.columns { display: flex; flex-wrap: wrap; gap: calc(var(--gap) * 2); align-items: flex-start; }
+.columns section { min-width: 12em; }
+.columns h2 { font-size: 1rem; margin: 0 0 6px; }
+.columns .count { color: var(--muted); }
+
+.player { display: block; width: 100%; max-height: 70vh; background: #000000; }
+.edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
+.edit-form .tags-field { flex: 1 1 16em; }
+';
+}
+
+/**
+ * Document head + open body. Every page starts here, so the doctype, the
+ * viewport and the stylesheet are declared in exactly one place.
+ */
+function renderHead(string $title): void
+{
+    echo '<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>' . escapeHtml($title) . '</title>
+<style>' . pageStyle() . '</style>
+</head>
+<body>
+';
+}
+
+function renderFoot(): void
+{
+    echo '
+</body>
+</html>
+';
+}
+
+//nav links shown on every page
 //$current  = filename of the page we are on, so it is not linked
 //$homeUrl  = where "Home" points (edit.php passes the grid it came from)
 
-function navHeader(string $current = '', string $homeUrl = 'index.php'): void
+function navLinks(string $current = '', string $homeUrl = 'index.php'): string
 {
     $links = array(
         'index.php' => array($homeUrl, 'Home'),
@@ -140,15 +312,36 @@ function navHeader(string $current = '', string $homeUrl = 'index.php'): void
 
     foreach ($links as $page => $link) {
         if ($page == $current) {
-            array_push($parts, '<b>' . $link[1] . '</b>');
+            array_push($parts, '<b>' . escapeHtml($link[1]) . '</b>');
         } else {
-            array_push($parts, '<a href="' . htmlspecialchars($link[0]) . '">' . $link[1] . '</a>');
+            array_push($parts, '<a href="' . escapeHtml($link[0]) . '">' . escapeHtml($link[1]) . '</a>');
         }
     }
 
-    echo '<div style="padding-bottom:4px;margin-bottom:6px;border-bottom:solid 1px #888888;">'
-        . implode(' &middot; ', $parts)
-        . '</div>';
+    return '<div class="nav">' . implode(' &middot; ', $parts) . '</div>';
+}
+
+/**
+ * The bar at the top of every page: nav, and on the grid the filters and the
+ * pager as well. It replaces the old top/bottom copies of both forms.
+ *
+ * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string}|null $params
+ * @param array{tags: list<string>, authors: list<string>}|null                                                            $known
+ */
+function renderBar(
+    string $current = '',
+    string $homeUrl = 'index.php',
+    ?array $params = null,
+    ?array $known = null,
+): void {
+    echo '<div class="bar">' . navLinks($current, $homeUrl);
+
+    if ($params !== null) {
+        echo renderFilterForm($params, $known) . renderPager($params);
+    }
+
+    echo '</div>
+';
 }
 
 //metadata access: data/<video>.json sidecars
@@ -227,6 +420,55 @@ function videosMissingMeta(): array
 }
 
 /**
+ * Split a comma-separated filter field into the values it lists.
+ *
+ * @return list<string>
+ */
+function filterValues(string $field): array
+{
+    $values = array();
+
+    foreach (explode(',', $field) as $value) {
+        $value = trim($value);
+
+        if ($value !== '') {
+            array_push($values, $value);
+        }
+    }
+
+    return $values;
+}
+
+/**
+ * Does this video pass the current filters?
+ *
+ * Several tags (or authors) narrow: a video has to carry all of them. An empty
+ * field filters nothing, and the rating is a floor, not an exact match.
+ *
+ * @param array{tag: string, author: string, rate: string, ...} $params
+ */
+function matchesFilters(Meta $meta, array $params): bool
+{
+    foreach (filterValues($params['tag']) as $tag) {
+        if (!in_array($tag, $meta->tags, true)) {
+            return false;
+        }
+    }
+
+    foreach (filterValues($params['author']) as $author) {
+        if (!in_array($author, $meta->authors, true)) {
+            return false;
+        }
+    }
+
+    if (is_numeric($params['rate']) && $meta->rate < (int) $params['rate']) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * How many videos carry each tag and each author, in one pass over the store.
  *
  * @return array{tags: array<string, int>, authors: array<string, int>}
@@ -254,18 +496,16 @@ function metaCounts(): array
 }
 
 /**
- * Render a 0-5 rating as star images.
+ * Render a 0-5 rating as text stars, so it needs no image assets. Ratings from
+ * a stored file are not trusted to be in range.
  */
 function renderRating(int $rate): string
 {
-    $out = '';
+    $rate = max(0, min(5, $rate));
 
-    for ($i = 0; $i < 5; $i++) {
-        $src = $i < $rate ? 'thumbs/rating-on.png' : 'thumbs/rating-off.png';
-        $out .= '<img style="width:0.75em;" src="' . $src . '">';
-    }
+    $stars = str_repeat('&#9733;', $rate) . str_repeat('&#9734;', 5 - $rate);
 
-    return $out;
+    return '<span class="rating" title="' . $rate . '/5">' . $stars . '</span>';
 }
 
 /**
@@ -291,15 +531,9 @@ function renderLinkList(array $values, string $param): string
 /**
  * @param array<string|int, string> $options value => label
  */
-function renderSelect(string $name, string $selected, array $options, string $style = ''): string
+function renderSelect(string $name, string $selected, array $options): string
 {
-    $out = '<select';
-
-    if ($style !== '') {
-        $out .= ' style="' . $style . '"';
-    }
-
-    $out .= ' name="' . escapeHtml($name) . '">';
+    $out = '<select name="' . escapeHtml($name) . '">';
 
     foreach ($options as $value => $label) {
         $out .= '<option value="' . escapeHtml((string) $value) . '"'
@@ -311,38 +545,91 @@ function renderSelect(string $name, string $selected, array $options, string $st
 }
 
 /**
- * The filter form, shown above and below the grid.
+ * The known values of a filter field, as a datalist the browser completes
+ * from. See completionScript() for the comma-separated case.
+ *
+ * @param list<string> $values
+ */
+function renderDatalist(string $id, array $values): string
+{
+    $out = '<datalist id="' . escapeHtml($id) . '">';
+
+    foreach ($values as $value) {
+        $out .= '<option value="' . escapeHtml($value) . '">';
+    }
+
+    return $out . '</datalist>';
+}
+
+/**
+ * A native datalist matches its options against the whole field, so once a
+ * comma is typed nothing matches any more. This re-points the options at the
+ * value being typed, keeping the ones already entered as a prefix.
+ *
+ * With scripting off the field still works: it just completes the first value
+ * only, which is the plain native behaviour.
+ */
+function completionScript(): string
+{
+    return '<script>
+for (const box of document.querySelectorAll("input[list]")) {
+	const list = document.getElementById(box.getAttribute("list"));
+
+	if (!list) {
+		continue;
+	}
+
+	const values = [...list.options].map(function (option) {
+		return option.value;
+	});
+
+	box.addEventListener("input", function () {
+		const head = box.value.slice(0, box.value.lastIndexOf(",") + 1);
+
+		//keep the spacing the typist used, or the option stops matching
+
+		const pad = box.value.slice(head.length).startsWith(" ") ? " " : "";
+
+		values.forEach(function (value, i) {
+			list.options[i].value = head + pad + value;
+		});
+	});
+}
+</script>';
+}
+
+/**
+ * The filter form. It lives in the sticky bar, once per page.
  *
  * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string} $params
+ * @param array{tags: list<string>, authors: list<string>}|null                                                        $known  values offered as autocomplete
  */
-function renderFilterForm(array $params): string
+function renderFilterForm(array $params, ?array $known = null): string
 {
-    $sense = renderSelect(
-        'u',
-        $params['sense'],
-        array('a' => 'Ascending', 'd' => 'Descending'),
-        'height:1.4em;width:8em;',
-    );
+    $order = renderSelect('o', (string) $params['order'], array('0' => 'Name', '1' => 'Date'));
+    $sense = renderSelect('u', $params['sense'], array('a' => 'Ascending', 'd' => 'Descending'));
 
-    $order = renderSelect(
-        'o',
-        (string) $params['order'],
-        array('0' => 'Name', '1' => 'Date'),
-        'height:1.4em;width:8em;',
-    );
+    $lists = '';
+    $tagList = '';
+    $authorList = '';
 
-    return '
-<form action="index.php" method="GET">
-<input name="s" type="number" placeholder="Size of list" value="' . $params['size'] . '">
-<input name="l" type="number" placeholder="Size of line" value="' . $params['cols'] . '">
-<p>' . $sense . '
-<input style="height:1.4em;width:11.3em;" name="tag" placeholder="Tag" value="' . escapeHtml($params['tag']) . '">
-<br>' . $order . '
-<input style="height:1.4em;width:8em;" name="author" placeholder="Author" value="' . escapeHtml($params['author']) . '">
-<input style="height:1.4em;width:3em;" name="rate" placeholder="Rating" type="number" value="' . escapeHtml($params['rate']) . '">
-<p>
-<input type="submit">
-</form>';
+    if ($known !== null) {
+        $lists = renderDatalist('tags', $known['tags'])
+            . renderDatalist('authors', $known['authors'])
+            . completionScript();
+        $tagList = ' list="tags"';
+        $authorList = ' list="authors"';
+    }
+
+    return '<form class="filters" action="index.php" method="GET">
+<input class="field-size" name="s" type="number" min="1" placeholder="Per page" value="' . $params['size'] . '">
+<input class="field-size" name="l" type="number" min="1" placeholder="Per row" value="' . $params['cols'] . '">
+' . $order . $sense . '
+<input class="field-text" name="tag"' . $tagList . ' placeholder="Tags" title="Comma-separated; a video must carry all of them" value="' . escapeHtml($params['tag']) . '">
+<input class="field-text" name="author"' . $authorList . ' placeholder="Authors" title="Comma-separated; a video must carry all of them" value="' . escapeHtml($params['author']) . '">
+<input class="field-rate" name="rate" type="number" min="0" max="5" placeholder="Rating &ge;" title="Minimum rating" value="' . escapeHtml($params['rate']) . '">
+<input type="submit" value="Filter">
+' . $lists . '</form>';
 }
 
 /**
@@ -352,7 +639,7 @@ function renderFilterForm(array $params): string
  */
 function renderPagerButton(array $params, int $page, string $label): string
 {
-    $out = '<form action="index.php" method="GET" style="display:inline-block;">';
+    $out = '<form action="index.php" method="GET">';
 
     $fields = gridFields(array_merge($params, array('page' => $page)));
 
@@ -367,19 +654,50 @@ function renderPagerButton(array $params, int $page, string $label): string
 }
 
 /**
- * The pager, shown above and below the grid. Page 0 is the first page, so "-"
- * never walks off the front of the list.
+ * The pager, part of the sticky bar. Page 0 is the first page, so "-" never
+ * walks off the front of the list.
  *
  * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string} $params
- * @param string                                                                                                       $style   placement of the pager box
  */
-function renderPager(array $params, string $style): string
+function renderPager(array $params): string
 {
-    return '
-<div style="color:ffffff;position:absolute;' . $style . '">
-Page: ' . renderPagerButton($params, max(0, $params['page'] - 1), '-')
-        . '
-' . $params['page'] . '
-' . renderPagerButton($params, $params['page'] + 1, '+') . '
-</div>';
+    //the label is escaped on the way out, so it is text, not an entity
+
+    return '<div class="pager">'
+        . renderPagerButton($params, max(0, $params['page'] - 1), 'Prev')
+        . '<span class="page">' . $params['page'] . '</span>'
+        . renderPagerButton($params, $params['page'] + 1, 'Next')
+        . '</div>';
+}
+
+/**
+ * One card in the grid. $meta is null for a video with no sidecar yet, which
+ * is the one case where no rating is shown.
+ *
+ * @param string $ret the grid query edit.php should come back to
+ */
+function renderVideoCard(string $vid, ?Meta $meta, string $ret): string
+{
+    $editUrl = 'edit.php?vid=' . urlencode($vid) . '&amp;ret=' . urlencode($ret);
+    $videoUrl = escapeHtml(videoUrl($vid));
+
+    $out = '<article class="card">
+<a class="edit" href="' . $editUrl . '" title="Edit">&#9998;</a>
+<a class="thumb" href="' . $videoUrl . '">
+<img src="' . escapeHtml(thumbUrl($vid)) . '" alt="" loading="lazy"'
+        . ' onerror="this.onerror=null;this.src=&#039;thumbs/err.png&#039;">
+</a>
+<div class="body">
+<a class="name" href="' . $videoUrl . '">' . escapeHtml($vid) . '</a>';
+
+    if ($meta !== null) {
+        $out .= '
+<div>' . renderRating($meta->rate) . '</div>
+<div class="facets"><b>Tags:</b> ' . renderLinkList($meta->tags, 'tag')
+            . '<br><b>Authors:</b> ' . renderLinkList($meta->authors, 'author') . '</div>';
+    }
+
+    return $out . '
+</div>
+</article>';
 }

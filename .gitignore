@@ -6,3 +6,6 @@
 # the library itself, not the app
 /videos/*
 !/videos/.gitkeep
+
+/thumbs/*
+!/thumbs/err.png
