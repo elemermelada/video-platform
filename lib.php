@@ -13,10 +13,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/src/Meta.php';
 require_once __DIR__ . '/src/MetaStore.php';
 require_once __DIR__ . '/src/Migrator.php';
+require_once __DIR__ . '/src/Thumbnailer.php';
 require_once __DIR__ . '/src/VideoLibrary.php';
 
 use VideoPlatform\Meta;
 use VideoPlatform\MetaStore;
+use VideoPlatform\Thumbnailer;
 use VideoPlatform\VideoLibrary;
 
 //everything that reaches the browser goes through here: filenames, tags and
@@ -309,6 +311,32 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
 .edit-form .tags-field { flex: 1 1 16em; }
 .edit-form .check { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+
+/* the thumbnail panel under the player: capture button, message, preview */
+
+.thumb-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: var(--gap) 0; }
+
+.notice {
+	padding: 6px 8px;
+	border: solid 1px var(--border);
+	border-radius: 4px;
+	background: var(--card);
+	color: var(--muted);
+	font-size: 0.9rem;
+}
+
+.notice.bad { border-color: var(--accent); color: var(--accent); }
+
+.thumb-preview img {
+	display: block;
+	width: 320px;
+	max-width: 100%;
+	aspect-ratio: 16 / 9;
+	object-fit: contain;
+	background: #000000;
+	border: solid 1px var(--border);
+	border-radius: var(--radius);
+}
 ';
 }
 
@@ -442,9 +470,42 @@ function videoPath(string $vid): string
     return videoLibrary()->path($vid);
 }
 
+//thumbnails: thumbs/<video>.png, captured from the player by edit.php
+//
+//ffmpeg is rarely on PATH on a Windows/XAMPP box, so the binary is taken from
+//the VIDEO_PLATFORM_FFMPEG environment variable when it is set
+
+function ffmpegBinary(): string
+{
+    //$_SERVER as well as getenv(): Apache's SetEnv only lands in one of them
+    //depending on how PHP is wired in
+
+    foreach (array(getenv('VIDEO_PLATFORM_FFMPEG'), $_SERVER['VIDEO_PLATFORM_FFMPEG'] ?? null) as $binary) {
+        if (is_string($binary) && trim($binary) !== '') {
+            return trim($binary);
+        }
+    }
+
+    return 'ffmpeg';
+}
+
+function thumbnailer(): Thumbnailer
+{
+    static $thumbnailer = null;
+
+    return $thumbnailer ??= new Thumbnailer(__DIR__ . '/thumbs', ffmpegBinary());
+}
+
+//the file name never changes when a thumbnail is recaptured, so the mtime
+//rides along to keep the browser from showing the old frame
+
 function thumbUrl(string $vid): string
 {
-    return 'thumbs/' . rawurlencode($vid) . '.png';
+    $url = 'thumbs/' . rawurlencode($vid) . '.png';
+
+    $stamp = @filemtime(thumbnailer()->path($vid));
+
+    return $stamp === false ? $url : $url . '?v=' . $stamp;
 }
 
 /**
