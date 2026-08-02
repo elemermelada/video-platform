@@ -1,56 +1,16 @@
-<style>
-
-a {
-
-	text-decoration: none;
-
-}
-
-a:hover {
-
-	color:ee1111;
-
-}
-
-</style>
-
-<body bgcolor="000000" style="color:ffffff;zoom:300%;">
-
 <?php
 
 require_once("lib.php");
-
-navHeader("index.php");
 
 $params = gridParams();
 
 $matches = array();
 
 foreach (videoFiles() as $vid) {
-    $meta = loadMeta($vid);
-
-    $keep = true;
-
-    if (!(in_array($params['author'], $meta->authors) or $params['author'] == "")) {
-        $keep = false;
-    }
-    if (!(in_array($params['tag'], $meta->tags) or $params['tag'] == "")) {
-        $keep = false;
-    }
-    if (!($params['rate'] == $meta->rate or $params['rate'] == "")) {
-        $keep = false;
-    }
-
-    if ($keep) {
+    if (matchesFilters(loadMeta($vid), $params)) {
         array_push($matches, $vid);
     }
 }
-
-//normal index
-
-echo renderFilterForm($params);
-echo renderPager($params, 'right:10;top:10;');
-echo '<hr>';
 
 if ($params['order'] == 1) {
     usort($matches, function ($a, $b) {
@@ -66,63 +26,31 @@ $page = array_slice($matches, $params['page'] * $params['size'], $params['size']
 
 //current page + filters, handed to edit.php so it can send us back here
 
-$ret = urlencode(gridQuery($params));
+$ret = gridQuery($params);
 
-echo '<center><table style="table-layout: fixed;width:100%;"><tr>';
+//the tag/author index, built once and offered as autocomplete in the filters
 
-$column = 0;
+$counts = metaCounts();
 
-for ($i = 0; $i < $params['size']; $i++) {
-    $vid = $page[$i] ?? "";
+renderHead("Videos");
+renderBar("index.php", "index.php", $params, array(
+    'tags' => array_map('strval', array_keys($counts['tags'])),
+    'authors' => array_map('strval', array_keys($counts['authors'])),
+));
 
-    //the last page is padded with blanks so the grid keeps its shape
+//auto-fill tracks: a short page needs no padding cells, and a card can never
+//stretch a row on its own
 
-    if ($vid === "") {
-        echo '
-	<td></td>
-	';
-    } else {
-        $meta = loadMeta($vid);
+echo '<div class="grid" style="--cols:' . $params['cols'] . '">';
 
-        $rating = hasMeta($vid) ? renderRating($meta->rate) : "";
-        $tags = renderLinkList($meta->tags, "tag");
-        $authors = renderLinkList($meta->authors, "author");
-        $name = escapeHtml($vid);
-
-        echo '
-
-	<td style="position:relative;border-style:solid;border-color:FFFFFF;border-size:1px;background-color:BBBBBB;text-align:center;padding:2px;">
-		<center>
-			<span>
-				<a style="right:5px;position:absolute;" href="edit.php?vid=' . urlencode($vid) . '&amp;ret=' . $ret . '">✎</a>
-				<a href="' . escapeHtml(videoUrl($vid)) . '">
-					<img onerror="this.onerror=null;this.src=' . "'" . 'thumbs/err.png' . "'" . '" src="' . escapeHtml(thumbUrl($vid)) . '" style="width:90%;"/>
-					<div style="word-wrap:break-word;overflow:hidden;text-overflow: ellipsis;display: -webkit-box;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">' . $name . '</div>
-				</a>
-			</span>
-			<hr style="margin-top:2;margin-bottom:1;border:none;border-top:solid 1px white;">' . $rating . '
-			<font size="1">
-				<div style="background-color:CCCCCC;color:000000;text-align:left;padding:1;margin-top:2px;">
-					<b>Tags:</b> ' . $tags . '
-					<br><b>Authors:</b> ' . $authors . '
-				</div>
-			</font>
-		</center>
-	</td>
-
-	';
-    }
-
-    $column += 1;
-
-    if ($column == $params['cols']) {
-        echo '</tr><tr>';
-        $column = 0;
-    }
+foreach ($page as $vid) {
+    echo renderVideoCard($vid, hasMeta($vid) ? loadMeta($vid) : null, $ret);
 }
 
-echo '</tr></table></center>';
+echo '</div>';
 
-echo '<hr>';
-echo renderFilterForm($params);
-echo renderPager($params, 'right:10;display:inline-block;');
+if ($page === array()) {
+    echo '<p>No videos match these filters.';
+}
+
+renderFoot();
