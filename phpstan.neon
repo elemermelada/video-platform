@@ -3,3 +3,7 @@ parameters:
     paths:
         - src
         - tests
+    # lib.php defines the helpers the plain-PHP pages call; scanning it lets
+    # PHPStan resolve them when the pre-commit hook analyses those files.
+    scanFiles:
+        - lib.php
