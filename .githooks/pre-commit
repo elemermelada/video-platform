@@ -6,10 +6,11 @@ set -e
 staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.php')
 [ -z "$staged" ] && exit 0
 
-if [ ! -x vendor/bin/php-cs-fixer ] || [ ! -x vendor/bin/phpstan ]; then
+if [ ! -x vendor/bin/php-cs-fixer ] || [ ! -x vendor/bin/phpcs ] || [ ! -x vendor/bin/phpstan ]; then
     echo "pre-commit: dev tooling missing, run 'composer install'" >&2
     exit 1
 fi
 
 echo "$staged" | xargs vendor/bin/php-cs-fixer fix --dry-run --diff --config=.php-cs-fixer.php --path-mode=intersection --
+echo "$staged" | xargs vendor/bin/phpcs --standard=phpcs.xml.dist --
 echo "$staged" | xargs vendor/bin/phpstan analyse --no-progress --
