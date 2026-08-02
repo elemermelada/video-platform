@@ -1,35 +1,96 @@
 # video-platform
-Lightweight video listing platform with metadata
+
+Minimal self-hosted video library browser. Plain PHP, no runtime dependencies,
+one embedded stylesheet — point Apache (or `php -S`) at the checkout and it
+works. Videos are plain files on disk; metadata is a JSON sidecar per video.
+
+## Requirements
+
+PHP 8.4+ with a web server. `vendor/` is dev tooling only; the app runs
+without it (the `src/` classes are loaded with bare requires).
+
+## Setup
+
+1. Serve the repo root, e.g.
+
+       php -S 0.0.0.0:8080
+
+   or an Apache vhost with the checkout as `DocumentRoot`.
+
+2. Drop video files into `videos/`. Recognized extensions: avi, flv, m4v,
+   mkv, mov, mp4, mpeg, mpg, ogv, ts, webm, wmv (see
+   `VideoLibrary::EXTENSIONS`).
+
+3. Optionally drop a `thumbs/<video filename>.png` thumbnail per video.
+   Missing thumbnails fall back to `thumbs/err.png`. Thumbnails render in a
+   fixed 16:9 box, letterboxed — vertical thumbs don't stretch the grid.
+   Typical generation:
+
+       ffmpeg -ss 10 -i "videos/foo.mp4" -frames:v 1 "thumbs/foo.mp4.png"
+
+There is no auth. It's built for a trusted LAN; put it behind basic auth or a
+VPN if it's reachable from anywhere else.
 
 ## Layout
 
-    videos/   the video files themselves (mp4, webm, mkv, mov, ...)
-    thumbs/   <video>.png thumbnails, plus err.png for the ones that are missing
-    data/     <video>.json metadata sidecars, written by edit.php
+    index.php    the whole browser: grid, filters, tag/author index
+    edit.php     per-video player + metadata editor (POST saves, then
+                 redirects back to the grid page/filters you came from)
+    migrate.php  CLI one-off: legacy .data sidecars -> .json
+    lib.php      shared page helpers (procedural, escapes all output)
+    src/         Meta, MetaStore, VideoLibrary, Migrator (PSR-4, unit-tested)
+    videos/      the video files (not the web root, so app files never list
+                 as videos and query-string ids are validated against it)
+    thumbs/      <video>.png thumbnails + err.png fallback
+    data/        <video>.json metadata sidecars
 
-Videos live in `videos/`, not next to the PHP files: only known video
-extensions are listed, and a video id coming off the query string is checked
-against that directory before it is used in a path.
+## Using it
 
-## Pages
+- **Grid** (`index.php`): each card links to the raw video file (native
+  browser playback) and has a ✎ link to the editor. Tag/author links on a
+  card re-filter the grid.
+- **Filter form** (sticky bar): `Tags` and `Authors` are comma-separated and
+  conjunctive — a video must carry *all* listed values. `Rating ≥` is a
+  floor, not an exact match. Known tags/authors autocomplete via
+  `<datalist>` (a small inline script keeps completion working after the
+  first comma; without JS the first value still completes).
+- **Sort**: by name or file mtime, ascending/descending. `Per page` and
+  `Per row` control paging and grid density; narrow windows drop columns
+  automatically.
+- **Tags & authors** (the `<details>` under the bar, collapsed by default):
+  every tag and author with its video count — each re-filters the grid — plus
+  the list of videos that have no metadata yet (each links to its editor).
+- **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
+  authors. Saving writes `data/<filename>.json` and redirects back.
 
-`index.php` is the grid, `browse.php` lists the tags and authors in use (plus
-the videos with no metadata yet), and `edit.php` edits one video's metadata.
+## Metadata format
 
-Every page emits the one embedded stylesheet in `pageStyle()` and a single
-sticky bar: navigation, and on the grid the filters and the pager too. The grid
-is a CSS grid of `auto-fill` tracks, so a card never stretches a row; `l` ("per
-row") sets how many columns a wide window gets, and narrow windows fall back to
-fewer. Thumbnails sit in a fixed 16:9 box and are letterboxed rather than
-cropped, so a vertical video keeps its shape.
+One JSON file per video at `data/<video filename>.json`:
 
-## Filtering
+    {
+        "rate": 3,
+        "tags": ["tutorial", "phpx"],
+        "authors": ["someone"]
+    }
 
-`tag` and `author` take a comma-separated list and narrow: a video has to carry
-every value listed. Known tags and authors are offered as `<datalist>`
-autocomplete in the filter form; a few lines of inline script re-point the
-options at the value being typed, so the second and later values complete too.
-With scripting off the first value still completes, natively.
+Files are written by `edit.php`; hand-editing is fine. Unknown keys are
+ignored, missing keys default to empty, out-of-range ratings are clamped on
+render.
 
-`rate` is a floor, not an exact match — `rate=3` lists everything rated 3 or
-better.
+### Migrating a pre-JSON library
+
+Older versions used `data/<video>.data` with the format
+`rate:tag:tag;author:author;`. Convert with:
+
+    php migrate.php --dry-run   # report only
+    php migrate.php             # convert and delete .data files
+    php migrate.php --keep      # convert, keep the .data files
+
+Existing `.json` files are never overwritten.
+
+## Development
+
+    composer install
+    composer test      # phpunit
+    composer lint      # php-cs-fixer --dry-run, phpcs, phpstan
+    composer format    # php-cs-fixer fix
