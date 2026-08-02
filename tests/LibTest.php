@@ -182,17 +182,51 @@ final class LibTest extends TestCase
         $this->assertStringContainsString('value="Prev"', $html);
         $this->assertStringNotContainsString('&amp;', $html);
         $this->assertStringContainsString('<b>Home</b>', $html);
-        $this->assertStringContainsString('href="browse.php"', $html);
     }
 
     public function testBarOutsideTheGridCarriesNavigationOnly(): void
     {
         ob_start();
-        renderBar('browse.php');
+        renderBar('edit.php', 'index.php?p=2');
         $html = (string) ob_get_clean();
 
         $this->assertStringNotContainsString('class="filters"', $html);
         $this->assertStringNotContainsString('class="pager"', $html);
+        $this->assertStringContainsString('href="index.php?p=2"', $html);
+    }
+
+    //the tag/author index, folded into the grid page
+
+    public function testIndexPanelListsCountsAndFilterLinks(): void
+    {
+        $counts = ['tags' => ['sci fi' => 2], 'authors' => ['ana' => 3]];
+
+        $html = renderIndexPanel($counts, []);
+
+        $this->assertStringContainsString('<details class="index">', $html);
+        $this->assertStringContainsString('href="index.php?tag=sci+fi"', $html);
+        $this->assertStringContainsString('href="index.php?author=ana"', $html);
+        $this->assertStringContainsString('<span class="count">3</span>', $html);
+        $this->assertStringContainsString('1 tags &middot; 1 authors', $html);
+    }
+
+    public function testIndexPanelListsVideosMissingMetadataAsEditLinks(): void
+    {
+        $counts = ['tags' => [], 'authors' => []];
+
+        $html = renderIndexPanel($counts, ['a&b.mp4']);
+
+        $this->assertStringContainsString('href="edit.php?vid=a%26b.mp4"', $html);
+        $this->assertStringContainsString('a&amp;b.mp4', $html);
+        $this->assertStringContainsString('1 missing metadata', $html);
+    }
+
+    public function testIndexPanelSaysNoneWhenThereIsNothingToList(): void
+    {
+        $html = renderIndexPanel(['tags' => [], 'authors' => []], []);
+
+        $this->assertSame(3, substr_count($html, '<span class="count">none</span>'));
+        $this->assertStringNotContainsString('missing metadata', $html);
     }
 
     //filtering: comma-separated tags and authors, and a rating floor

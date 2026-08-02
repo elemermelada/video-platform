@@ -28,7 +28,8 @@ $page = array_slice($matches, $params['page'] * $params['size'], $params['size']
 
 $ret = gridQuery($params);
 
-//the tag/author index, built once and offered as autocomplete in the filters
+//the tag/author index, built once: offered as autocomplete in the filters and
+//listed with its counts in the panel under the bar
 
 $counts = metaCounts();
 
@@ -37,6 +38,8 @@ renderBar("index.php", "index.php", $params, array(
     'tags' => array_map('strval', array_keys($counts['tags'])),
     'authors' => array_map('strval', array_keys($counts['authors'])),
 ));
+
+echo renderIndexPanel($counts, videosMissingMeta());
 
 //auto-fill tracks: a short page needs no padding cells, and a card can never
 //stretch a row on its own
