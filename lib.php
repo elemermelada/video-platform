@@ -100,7 +100,6 @@ function navHeader(string $current = '', string $homeUrl = 'index.php'): void
     $links = array(
         'index.php' => array($homeUrl, 'Home'),
         'browse.php' => array('browse.php', 'Filters'),
-        'check.php' => array('check.php', 'Missing metadata'),
     );
 
     $parts = array();
@@ -150,6 +149,18 @@ function hasMeta(string $vid): bool
 function videoFiles(): array
 {
     return glob('*.*') ?: array();
+}
+
+/**
+ * Videos with no metadata sidecar yet.
+ *
+ * @return list<string>
+ */
+function videosMissingMeta(): array
+{
+    return array_values(array_filter(videoFiles(), function (string $vid) {
+        return !hasMeta($vid);
+    }));
 }
 
 /**
