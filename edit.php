@@ -1,8 +1,12 @@
 <?php
 
-require_once __DIR__ . '/lib.php';
+require_once("lib.php");
 
 use VideoPlatform\Meta;
+
+//where we came from: the grid, with its page & filters
+
+$back = grid_url($_GET["ret"]);
 
 $vid = $_GET["vid"];
 
@@ -12,12 +16,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         "tags" => $_POST["tags"],
         "authors" => $_POST["authors"],
     ]));
+
+    //back to the same spot in the grid
+
+    header("Location: " . $back);
+    exit;
 }
+
+nav_header("edit.php", $back);
 
 $meta = load_meta($vid);
 
 echo '
-<a href="lindex.php"><h1>HOME</h1></a>
 <center>
 <video controls src="' . $vid . '" style="height:50%;"></video>
 <p>
@@ -27,5 +37,7 @@ echo '
 <input style="font-size:2em;width:45%;" type="text" name="authors" placeholder="Authors (comma separated)" value="' . implode(', ', $meta->authors) . '" />
 <input type="submit">
 </form>
+<p>
+<a href="' . htmlspecialchars($back) . '">&larr; Back to the grid</a>
 
 ';

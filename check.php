@@ -1,6 +1,8 @@
 <?php
 
-require_once __DIR__ . '/lib.php';
+require_once("lib.php");
+
+nav_header("check.php");
 
 $vidz = glob("*.*");
 
