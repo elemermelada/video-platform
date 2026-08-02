@@ -7,7 +7,7 @@ $params = gridParams();
 $matches = array();
 
 foreach (videoFiles() as $vid) {
-    if (matchesFilters(loadMeta($vid), $params)) {
+    if (matchesName($vid, $params) && matchesFilters(loadMeta($vid), $params)) {
         array_push($matches, $vid);
     }
 }
