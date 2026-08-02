@@ -23,6 +23,9 @@ jobs:
       - name: Format check
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
+      - name: Naming conventions
+        run: vendor/bin/phpcs
+
       - name: Static analysis
         run: vendor/bin/phpstan analyse
 

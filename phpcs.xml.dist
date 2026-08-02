@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="video-platform">
+    <description>
+        Naming only: php-cs-fixer owns layout, this owns symbol casing.
+        camelCase functions, methods and variables; StudlyCaps classes;
+        UPPER_CASE constants.
+    </description>
+
+    <file>.</file>
+    <exclude-pattern>vendor/*</exclude-pattern>
+
+    <arg name="colors"/>
+    <arg name="basepath" value="."/>
+    <arg value="np"/>
+
+    <rule ref="Generic.NamingConventions.CamelCapsFunctionName"/>
+    <rule ref="Generic.NamingConventions.ConstructorName"/>
+    <rule ref="Generic.NamingConventions.UpperCaseConstantName"/>
+    <rule ref="PSR1.Methods.CamelCapsMethodName"/>
+    <rule ref="Squiz.Classes.ValidClassName"/>
+    <rule ref="Squiz.NamingConventions.ValidVariableName">
+        <!-- Underscore-prefixed private members are a pre-PSR habit we do not want. -->
+        <exclude name="Squiz.NamingConventions.ValidVariableName.PrivateNoUnderscore"/>
+    </rule>
+</ruleset>

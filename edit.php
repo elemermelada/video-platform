@@ -6,12 +6,12 @@ use VideoPlatform\Meta;
 
 //where we came from: the grid, with its page & filters
 
-$back = grid_url($_GET["ret"]);
+$back = gridUrl($_GET["ret"]);
 
 $vid = $_GET["vid"];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    save_meta($vid, Meta::fromArray([
+    saveMeta($vid, Meta::fromArray([
         "rate" => $_POST["rate"],
         "tags" => $_POST["tags"],
         "authors" => $_POST["authors"],
@@ -23,9 +23,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     exit;
 }
 
-nav_header("edit.php", $back);
+navHeader("edit.php", $back);
 
-$meta = load_meta($vid);
+$meta = loadMeta($vid);
 
 echo '
 <center>

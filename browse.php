@@ -2,77 +2,39 @@
 
 require_once("lib.php");
 
-nav_header("browse.php");
+navHeader("browse.php");
 
-$aths = array();
-$aths2 = array();
-$qa = array(); //number of vids per author
-$tgs = array();
-$tgs2 = array();
-$qt = array(); //number of vids per tag
+$counts = metaCounts();
 
-foreach (meta_store()->ids() as $vid) {
-    $meta = load_meta($vid);
+$columns = array(
+    "author" => $counts['authors'],
+    "tag" => $counts['tags'],
+);
 
-    //get rate
+foreach ($columns as $param => $names) {
+    echo '<div style="vertical-align:top;display:inline-block;top:0;margin:15;">';
 
-    $ratext = render_rating($meta->rate);
-
-    //get tags
-
-    foreach ($meta->tags as $tag) {
-        if (!in_array($tag, $tgs)) {
-            array_push($tgs, $tag);
-            array_push($qt, 1);
-        } else {
-            $qt[array_search($tag, $tgs)] += 1;
-        }
+    foreach ($names as $name => $count) {
+        echo '<a href="index.php?' . $param . '=' . urlencode($name) . '">'
+            . $name . ": " . $count . "</a><br>";
     }
 
-    //get authors
-
-    foreach ($meta->authors as $author) {
-        if (!in_array($author, $aths)) {
-            array_push($aths, $author);
-            array_push($qa, 1);
-        } else {
-            $qa[array_search($author, $aths)] += 1;
-        }
-    }
+    echo '</div>';
 }
 
-$count = 0;
-foreach ($aths as $a) {
-    array_push($aths2, $a . ": " . $qa[$count]);
-    $count += 1;
-}
+//videos with no metadata sidecar yet (used to live in check.php)
 
-$count = 0;
-foreach ($tgs as $t) {
-    array_push($tgs2, $t . ": " . $qt[$count]);
-    $count += 1;
-}
+$missing = videosMissingMeta();
 
-sort($aths);
-sort($aths2);
 echo '<div style="vertical-align:top;display:inline-block;top:0;margin:15;">';
-//echo '<pre>';
-$count = 0;
-foreach ($aths as $ath) {
-    echo '<a href="index.php?author=' . $ath . '">' . $aths2[$count] . "</a><br>";
-    $count += 1;
-}
-//echo '</pre>';
-echo '</div>';
+echo '<b>Missing metadata</b><br>';
 
-sort($tgs);
-sort($tgs2);
-echo '<div style="vertical-align:top;display:inline-block;top:0;margin:15;">';
-//echo '<pre>';
-$count = 0;
-foreach ($tgs as $tg) {
-    echo '<a href="index.php?tag=' . $tg . '">' . $tgs2[$count] . "</a><br>";
-    $count += 1;
+if ($missing == array()) {
+    echo "none<br>";
 }
-//echo '</pre>';
+
+foreach ($missing as $vid) {
+    echo '<a href="edit.php?vid=' . urlencode($vid) . '">' . $vid . "</a><br>";
+}
+
 echo '</div>';
