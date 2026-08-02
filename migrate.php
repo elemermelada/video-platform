@@ -25,7 +25,7 @@ if (PHP_SAPI !== 'cli') {
 $dryRun = in_array('--dry-run', $argv, true);
 $keep = in_array('--keep', $argv, true);
 
-$result = (new Migrator(meta_store()))->migrate(deleteLegacy: !$keep, dryRun: $dryRun);
+$result = (new Migrator(metaStore()))->migrate(deleteLegacy: !$keep, dryRun: $dryRun);
 
 $prefix = $dryRun ? '[dry-run] ' : '';
 

@@ -2,7 +2,7 @@
 
 require_once("lib.php");
 
-nav_header("browse.php");
+navHeader("browse.php");
 
 $aths = array();
 $aths2 = array();
@@ -11,12 +11,12 @@ $tgs = array();
 $tgs2 = array();
 $qt = array(); //number of vids per tag
 
-foreach (meta_store()->ids() as $vid) {
-    $meta = load_meta($vid);
+foreach (metaStore()->ids() as $vid) {
+    $meta = loadMeta($vid);
 
     //get rate
 
-    $ratext = render_rating($meta->rate);
+    $ratext = renderRating($meta->rate);
 
     //get tags
 
