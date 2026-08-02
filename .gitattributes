@@ -1,0 +1,3 @@
+# php-cs-fixer (and so the pre-commit hook) insists on LF, so check the
+# worktree out with LF everywhere, whatever core.autocrlf says locally.
+* text=auto eol=lf
