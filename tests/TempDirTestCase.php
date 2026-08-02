@@ -22,7 +22,11 @@ abstract class TempDirTestCase extends TestCase
     protected function tearDown(): void
     {
         foreach (glob($this->dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
-            unlink($file);
+            if (is_dir($file)) {
+                rmdir($file);
+            } else {
+                unlink($file);
+            }
         }
 
         rmdir($this->dir);

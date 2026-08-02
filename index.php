@@ -18,8 +18,6 @@ a:hover {
 
 <?php
 
-error_reporting(0);
-
 require_once("lib.php");
 
 navHeader("index.php");
@@ -56,7 +54,7 @@ echo '<hr>';
 
 if ($params['order'] == 1) {
     usort($matches, function ($a, $b) {
-        return filemtime($b) <=> filemtime($a);
+        return filemtime(videoPath($b)) <=> filemtime(videoPath($a));
     });
 }
 
@@ -76,21 +74,30 @@ $column = 0;
 
 for ($i = 0; $i < $params['size']; $i++) {
     $vid = $page[$i] ?? "";
-    $meta = loadMeta($vid);
 
-    $rating = hasMeta($vid) ? renderRating($meta->rate) : "";
-    $tags = renderLinkList($meta->tags, "tag");
-    $authors = renderLinkList($meta->authors, "author");
+    //the last page is padded with blanks so the grid keeps its shape
 
-    echo '
+    if ($vid === "") {
+        echo '
+	<td></td>
+	';
+    } else {
+        $meta = loadMeta($vid);
+
+        $rating = hasMeta($vid) ? renderRating($meta->rate) : "";
+        $tags = renderLinkList($meta->tags, "tag");
+        $authors = renderLinkList($meta->authors, "author");
+        $name = escapeHtml($vid);
+
+        echo '
 
 	<td style="position:relative;border-style:solid;border-color:FFFFFF;border-size:1px;background-color:BBBBBB;text-align:center;padding:2px;">
 		<center>
 			<span>
 				<a style="right:5px;position:absolute;" href="edit.php?vid=' . urlencode($vid) . '&amp;ret=' . $ret . '">✎</a>
-				<a href="' . $vid . '">
-					<img onerror="this.onerror=null;this.src=' . "'" . 'thumbs/err.png' . "'" . '" src="thumbs/' . $vid . '.png" style="width:90%;"/>
-					<div style="word-wrap:break-word;overflow:hidden;text-overflow: ellipsis;display: -webkit-box;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">' . $vid . '</div>
+				<a href="' . escapeHtml(videoUrl($vid)) . '">
+					<img onerror="this.onerror=null;this.src=' . "'" . 'thumbs/err.png' . "'" . '" src="' . escapeHtml(thumbUrl($vid)) . '" style="width:90%;"/>
+					<div style="word-wrap:break-word;overflow:hidden;text-overflow: ellipsis;display: -webkit-box;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">' . $name . '</div>
 				</a>
 			</span>
 			<hr style="margin-top:2;margin-bottom:1;border:none;border-top:solid 1px white;">' . $rating . '
@@ -104,6 +111,7 @@ for ($i = 0; $i < $params['size']; $i++) {
 	</td>
 
 	';
+    }
 
     $column += 1;
 
