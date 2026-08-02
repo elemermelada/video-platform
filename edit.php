@@ -1,10 +1,8 @@
 <?php
 
 if ($_POST["data"] != "") {
-
     file_put_contents("data/" . $_GET["vid"] . ".data", $_POST["data"]);
     echo $_POST["data"];
-
 }
 
 echo '
