@@ -260,10 +260,39 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .card .facets a { color: var(--muted); }
 .card .facets a:hover { color: var(--accent); }
 
-.columns { display: flex; flex-wrap: wrap; gap: calc(var(--gap) * 2); align-items: flex-start; }
-.columns section { min-width: 12em; }
-.columns h2 { font-size: 1rem; margin: 0 0 6px; }
-.columns .count { color: var(--muted); }
+/* the tag/author index: a native <details>, folded away until asked for, so
+   the grid stays the whole page on a phone */
+
+.index {
+	background: var(--card);
+	border: solid 1px var(--border);
+	border-radius: var(--radius);
+	margin-bottom: var(--gap);
+}
+
+.index > summary {
+	cursor: pointer;
+	padding: 8px var(--gap);
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+
+.index > summary:hover { color: var(--accent); }
+
+.index .columns {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr));
+	gap: var(--gap);
+	padding: 0 var(--gap) var(--gap);
+	border-top: solid 1px var(--border);
+}
+
+.index h2 { font-size: 0.9rem; margin: var(--gap) 0 6px; }
+.index .count { color: var(--muted); }
+
+/* a long list scrolls inside its own column instead of pushing the grid down */
+
+.index .list { max-height: 40vh; overflow-y: auto; font-size: 0.9rem; }
 
 .player { display: block; width: 100%; max-height: 70vh; background: #000000; }
 .edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
@@ -305,7 +334,6 @@ function navLinks(string $current = '', string $homeUrl = 'index.php'): string
 {
     $links = array(
         'index.php' => array($homeUrl, 'Home'),
-        'browse.php' => array('browse.php', 'Filters'),
     );
 
     $parts = array();
@@ -668,6 +696,62 @@ function renderPager(array $params): string
         . '<span class="page">' . $params['page'] . '</span>'
         . renderPagerButton($params, $params['page'] + 1, 'Next')
         . '</div>';
+}
+
+/**
+ * One column of the index: each name links to the grid filtered by it, with
+ * the number of videos that carry it.
+ *
+ * @param array<string, int> $counts name => number of videos
+ * @param string             $param  the grid filter these names feed: "tag" or "author"
+ */
+function renderCountList(array $counts, string $param): string
+{
+    if ($counts === array()) {
+        return '<span class="count">none</span>';
+    }
+
+    $out = '';
+
+    foreach ($counts as $name => $count) {
+        $out .= '<a href="index.php?' . $param . '=' . urlencode((string) $name) . '">'
+            . escapeHtml((string) $name) . '</a> <span class="count">' . $count . '</span><br>';
+    }
+
+    return $out;
+}
+
+/**
+ * The tag/author index, folded into the grid page as a native <details>: no
+ * sidebar, and on a phone it costs one line until it is opened.
+ *
+ * @param array{tags: array<string, int>, authors: array<string, int>} $counts
+ * @param list<string>                                                 $missing videos with no sidecar yet
+ */
+function renderIndexPanel(array $counts, array $missing): string
+{
+    $summary = count($counts['tags']) . ' tags &middot; ' . count($counts['authors']) . ' authors';
+
+    if ($missing !== array()) {
+        $summary .= ' &middot; ' . count($missing) . ' missing metadata';
+    }
+
+    $links = '';
+
+    foreach ($missing as $vid) {
+        $links .= '<a href="edit.php?vid=' . urlencode($vid) . '">' . escapeHtml($vid) . '</a><br>';
+    }
+
+    return '<details class="index">
+<summary>Tags &amp; authors <span class="count">(' . $summary . ')</span></summary>
+<div class="columns">
+<section><h2>Authors</h2><div class="list">' . renderCountList($counts['authors'], 'author') . '</div></section>
+<section><h2>Tags</h2><div class="list">' . renderCountList($counts['tags'], 'tag') . '</div></section>
+<section><h2>Missing metadata</h2><div class="list">'
+        . ($links === '' ? '<span class="count">none</span>' : $links) . '</div></section>
+</div>
+</details>
+';
 }
 
 /**
