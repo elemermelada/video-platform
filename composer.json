@@ -1,0 +1,35 @@
+{
+    "name": "elemermelada/video-platform",
+    "description": "Minimal self-hosted video library browser",
+    "type": "project",
+    "license": "GPL-3.0-or-later",
+    "require": {
+        "php": ">=8.4"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^11.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "VideoPlatform\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "VideoPlatform\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "format": "php-cs-fixer fix",
+        "lint": [
+            "php-cs-fixer fix --dry-run --diff",
+            "phpstan analyse"
+        ],
+        "test": "phpunit"
+    }
+}

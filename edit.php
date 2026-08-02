@@ -1,13 +1,11 @@
 <?php
 
-if ($_POST["data"]!="") {
-	
-	file_put_contents("data/" . $_GET["vid"] . ".data", $_POST["data"]);
-	echo $_POST["data"];
-	
+if ($_POST["data"] != "") {
+    file_put_contents("data/" . $_GET["vid"] . ".data", $_POST["data"]);
+    echo $_POST["data"];
 }
 
-	echo '
+echo '
 <a href="lindex.php"><h1>HOME</h1></a>
 <center>
 <video controls src="' . $_GET["vid"] . '" style="height:50%;"></video>
@@ -18,5 +16,3 @@ if ($_POST["data"]!="") {
 </form>
 
 ';
-
-?>
