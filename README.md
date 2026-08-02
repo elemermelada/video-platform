@@ -38,7 +38,8 @@ VPN if it's reachable from anywhere else.
     index.php    the whole browser: grid, filters, tag/author index
     edit.php     per-video player + metadata editor (POST saves, then
                  redirects back to the grid page/filters you came from)
-    migrate.php  CLI one-off: legacy .data sidecars -> .json
+    migrate.php  CLI one-off: legacy .data sidecars -> .json, and --dates to
+                 stamp dateless sidecars from the filesystem
     lib.php      shared page helpers (procedural, escapes all output)
     src/         Meta, MetaStore, VideoLibrary, Migrator, Thumbnailer
                  (PSR-4, unit-tested)
@@ -52,20 +53,25 @@ VPN if it's reachable from anywhere else.
 - **Grid** (`index.php`): each card links to the raw video file (native
   browser playback) and has a ✎ link to the editor. Tag/author links on a
   card re-filter the grid.
-- **Filter form** (sticky bar): `Tags` and `Authors` are comma-separated and
+- **Filter form** (sticky bar): `Search names` is a case-insensitive substring
+  match on the filename — it needs no metadata, so a video with no sidecar yet
+  is findable too. `Tags` and `Authors` are comma-separated and
   conjunctive — a video must carry *all* listed values. `Rating ≥` is a
   floor, not an exact match. Known tags/authors autocomplete via
   `<datalist>` (a small inline script keeps completion working after the
   first comma; without JS the first value still completes).
-- **Sort**: by name or file mtime, ascending/descending. `Per page` and
-  `Per row` control paging and grid density; narrow windows drop columns
-  automatically.
+- **Sort**: by name or date, ascending/descending. The date is the one stored
+  in the sidecar; videos whose sidecar has none (or that have no sidecar) fall
+  back to the file's mtime. `Per page` and `Per row` control paging and grid
+  density; narrow windows drop columns automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
   the list of videos that have no metadata yet (each links to its editor).
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
-  authors. Saving writes `data/<filename>.json` and redirects back. The
-  player also captures thumbnails — see below.
+  authors, and the date the grid sorts by (a native datepicker, plus a `Now`
+  checkbox that saves with today's date whatever the picker holds). A video's
+  first save is dated today. Saving writes `data/<filename>.json` and
+  redirects back. The player also captures thumbnails — see below.
 
 ## Thumbnails
 
@@ -92,12 +98,20 @@ One JSON file per video at `data/<video filename>.json`:
     {
         "rate": 3,
         "tags": ["tutorial", "phpx"],
-        "authors": ["someone"]
+        "authors": ["someone"],
+        "date": "2024-05-06"
     }
 
 Files are written by `edit.php`; hand-editing is fine. Unknown keys are
 ignored, missing keys default to empty, out-of-range ratings are clamped on
 render.
+
+`date` is optional and is what the date sort uses — stored rather than taken
+from the filesystem, so it survives copies, moves between disks and restores
+from backup. Accepted: `YYYY-MM-DD`, or with a time as `YYYY-MM-DDTHH:MM[:SS]`
+(a space instead of the `T` is fine too). Anything else is read as "no date"
+and that video falls back to its mtime. The editor works at day precision, so
+saving a video whose sidecar carries a time drops it.
 
 ### Migrating a pre-JSON library
 
@@ -109,6 +123,17 @@ Older versions used `data/<video>.data` with the format
     php migrate.php --keep      # convert, keep the .data files
 
 Existing `.json` files are never overwritten.
+
+### Backfilling dates
+
+Sidecars written before the `date` field existed have none, and those videos
+sort by mtime. Stamp them once so the fallback stops mattering:
+
+    php migrate.php --dates --dry-run   # report only
+    php migrate.php --dates             # stamp every dateless sidecar
+
+The date comes from the video file's mtime (the sidecar's own mtime if the
+video is gone), and a sidecar that already has a date is left alone.
 
 ## Development
 

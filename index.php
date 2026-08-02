@@ -5,16 +5,36 @@ require_once("lib.php");
 $params = gridParams();
 
 $matches = array();
+$metas = array();
 
 foreach (videoFiles() as $vid) {
-    if (matchesFilters(loadMeta($vid), $params)) {
+    //the name filter first: it costs nothing, and it can rule a video out
+    //before its sidecar is read
+
+    if (!matchesName($vid, $params)) {
+        continue;
+    }
+
+    $meta = loadMeta($vid);
+
+    if (matchesFilters($meta, $params)) {
         array_push($matches, $vid);
+        $metas[$vid] = $meta;
     }
 }
 
 if ($params['order'] == 1) {
-    usort($matches, function ($a, $b) {
-        return filemtime(videoPath($b)) <=> filemtime(videoPath($a));
+    //the date each video carries in its metadata, with its mtime as the
+    //fallback: worked out once per video, not once per comparison
+
+    $dates = array();
+
+    foreach ($matches as $vid) {
+        $dates[$vid] = videoDate($vid, $metas[$vid]);
+    }
+
+    usort($matches, function ($a, $b) use ($dates) {
+        return $dates[$b] <=> $dates[$a];
     });
 }
 
@@ -47,7 +67,7 @@ echo renderIndexPanel($counts, videosMissingMeta());
 echo '<div class="grid" style="--cols:' . $params['cols'] . '">';
 
 foreach ($page as $vid) {
-    echo renderVideoCard($vid, hasMeta($vid) ? loadMeta($vid) : null, $ret);
+    echo renderVideoCard($vid, hasMeta($vid) ? $metas[$vid] : null, $ret);
 }
 
 echo '</div>';

@@ -31,10 +31,11 @@ function escapeHtml(string $value): string
 
 //view state: the params that describe the current grid (page + filters)
 //
-//p = page, s = size of list, l = elements in line, o = order, u = sense
+//p = page, s = size of list, l = elements in line, o = order, u = sense,
+//q = free-text search over the filename
 
 /**
- * @return array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string}
+ * @return array{page: int, size: int, cols: int, order: int, sense: string, query: string, tag: string, author: string, rate: string}
  */
 function gridParams(): array
 {
@@ -47,6 +48,7 @@ function gridParams(): array
         'cols' => $cols > 0 ? $cols : 4,
         'order' => ($_GET['o'] ?? '') == 1 ? 1 : 0,
         'sense' => ($_GET['u'] ?? '') === 'a' ? 'a' : 'd',
+        'query' => (string) ($_GET['q'] ?? ''),
         'tag' => (string) ($_GET['tag'] ?? ''),
         'author' => (string) ($_GET['author'] ?? ''),
         'rate' => (string) ($_GET['rate'] ?? ''),
@@ -68,6 +70,7 @@ function gridFields(array $params): array
         'l' => (string) $params['cols'],
         'o' => (string) $params['order'],
         'u' => (string) $params['sense'],
+        'q' => (string) $params['query'],
         'author' => (string) $params['author'],
         'rate' => (string) $params['rate'],
         'tag' => (string) $params['tag'],
@@ -103,7 +106,7 @@ function sanitizeGridQuery(string $query): string
 
     $fields = array();
 
-    foreach (array('p', 's', 'l', 'o', 'u', 'author', 'rate', 'tag') as $name) {
+    foreach (array('p', 's', 'l', 'o', 'u', 'q', 'author', 'rate', 'tag') as $name) {
         $value = $parsed[$name] ?? null;
 
         if (is_scalar($value) && (string) $value !== '') {
@@ -170,6 +173,10 @@ input, select {
 	font-size: 0.9rem;
 }
 
+/* the field styling above is for text boxes: a checkbox keeps its own look */
+
+input[type="checkbox"] { padding: 0; border: none; accent-color: var(--accent); }
+
 input[type="submit"] { cursor: pointer; background: var(--card); }
 input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -196,6 +203,7 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .bar .pager .page { min-width: 2em; text-align: center; color: var(--muted); }
 
 .field-size { width: 6em; }
+.field-search { width: 12em; }
 .field-rate { width: 5em; }
 .field-text { width: 10em; }
 
@@ -281,9 +289,12 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 
 .index > summary:hover { color: var(--accent); }
 
+/* auto-fit, not auto-fill: there are only ever three sections, and they should
+   share the whole width instead of leaving empty tracks beside them */
+
 .index .columns {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 14em), 1fr));
 	gap: var(--gap);
 	padding: 0 var(--gap) var(--gap);
 	border-top: solid 1px var(--border);
@@ -299,6 +310,7 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .player { display: block; width: 100%; max-height: 70vh; background: #000000; }
 .edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
 .edit-form .tags-field { flex: 1 1 16em; }
+.edit-form .check { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 
 /* the thumbnail panel under the player: capture button, message, preview */
 
@@ -381,7 +393,7 @@ function navLinks(string $current = '', string $homeUrl = 'index.php'): string
  * The bar at the top of every page: nav, and on the grid the filters and the
  * pager as well. It replaces the old top/bottom copies of both forms.
  *
- * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string}|null $params
+ * @param array{page: int, size: int, cols: int, order: int, sense: string, query: string, tag: string, author: string, rate: string}|null $params
  * @param array{tags: list<string>, authors: list<string>}|null                                                            $known
  */
 function renderBar(
@@ -497,6 +509,27 @@ function thumbUrl(string $vid): string
 }
 
 /**
+ * When a video is dated, for the grid's date sort: the date stored in its
+ * metadata, falling back to the file's mtime for sidecars written before the
+ * field existed (`php migrate.php --dates` stamps those).
+ *
+ * @param Meta|null $meta the metadata if the caller has it loaded already
+ */
+function videoDate(string $vid, ?Meta $meta = null): int
+{
+    $stored = ($meta ?? loadMeta($vid))->timestamp();
+
+    if ($stored !== null) {
+        return $stored;
+    }
+
+    $path = videoPath($vid);
+    $mtime = $path !== '' && is_file($path) ? filemtime($path) : false;
+
+    return $mtime === false ? 0 : $mtime;
+}
+
+/**
  * Videos with no metadata sidecar yet.
  *
  * @return list<string>
@@ -526,6 +559,26 @@ function filterValues(string $field): array
     }
 
     return $values;
+}
+
+/**
+ * Does this video's filename match the search box?
+ *
+ * A case-insensitive substring match, kept apart from matchesFilters() because
+ * it needs no metadata: a video with no sidecar yet is searchable all the same.
+ * An empty (or all-space) field filters nothing, like the other filters.
+ *
+ * @param array{query: string, ...} $params
+ */
+function matchesName(string $vid, array $params): bool
+{
+    $needle = trim($params['query']);
+
+    if ($needle === '') {
+        return true;
+    }
+
+    return stripos($vid, $needle) !== false;
 }
 
 /**
@@ -690,7 +743,7 @@ for (const box of document.querySelectorAll("input[list]")) {
 /**
  * The filter form. It lives in the sticky bar, once per page.
  *
- * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string} $params
+ * @param array{page: int, size: int, cols: int, order: int, sense: string, query: string, tag: string, author: string, rate: string} $params
  * @param array{tags: list<string>, authors: list<string>}|null                                                        $known  values offered as autocomplete
  */
 function renderFilterForm(array $params, ?array $known = null): string
@@ -714,6 +767,7 @@ function renderFilterForm(array $params, ?array $known = null): string
 <input class="field-size" name="s" type="number" min="1" placeholder="Per page" value="' . $params['size'] . '">
 <input class="field-size" name="l" type="number" min="1" placeholder="Per row" value="' . $params['cols'] . '">
 ' . $order . $sense . '
+<input class="field-search" name="q" type="search" placeholder="Search names" title="Part of a filename; case-insensitive" value="' . escapeHtml($params['query']) . '">
 <input class="field-text" name="tag"' . $tagList . ' placeholder="Tags" title="Comma-separated; a video must carry all of them" value="' . escapeHtml($params['tag']) . '">
 <input class="field-text" name="author"' . $authorList . ' placeholder="Authors" title="Comma-separated; a video must carry all of them" value="' . escapeHtml($params['author']) . '">
 <input class="field-rate" name="rate" type="number" min="0" max="5" placeholder="Rating &ge;" title="Minimum rating" value="' . escapeHtml($params['rate']) . '">
@@ -746,7 +800,7 @@ function renderPagerButton(array $params, int $page, string $label): string
  * The pager, part of the sticky bar. Page 0 is the first page, so "-" never
  * walks off the front of the list.
  *
- * @param array{page: int, size: int, cols: int, order: int, sense: string, tag: string, author: string, rate: string} $params
+ * @param array{page: int, size: int, cols: int, order: int, sense: string, query: string, tag: string, author: string, rate: string} $params
  */
 function renderPager(array $params): string
 {

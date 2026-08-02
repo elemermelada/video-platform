@@ -229,6 +229,24 @@ final class LibTest extends TestCase
         $this->assertStringNotContainsString('missing metadata', $html);
     }
 
+    //the date sort: the stored date, with the file's mtime behind it
+
+    public function testVideoDateUsesTheStoredDate(): void
+    {
+        $this->assertSame(
+            strtotime('2024-05-06'),
+            videoDate('kept.mp4', new Meta(0, [], [], '2024-05-06')),
+        );
+    }
+
+    public function testVideoDateFallsBackToTheFileWhenNothingIsStored(): void
+    {
+        //no date in the sidecar and no file behind the id: nothing to sort by,
+        //so the video sorts as the oldest rather than blowing up
+
+        $this->assertSame(0, videoDate('not-in-the-library.mp4', new Meta(0, [], [])));
+    }
+
     //filtering: comma-separated tags and authors, and a rating floor
 
     public function testFilterValuesSplitsAndTrimsAndDropsEmpties(): void
@@ -287,6 +305,50 @@ final class LibTest extends TestCase
         $meta = new Meta(0, ['action'], []);
 
         $this->assertFalse(matchesFilters($meta, ['tag' => 'act', 'author' => '', 'rate' => '']));
+    }
+
+    //the search box: a substring of the filename, and no metadata needed
+
+    public function testEmptySearchMatchesEveryName(): void
+    {
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '']));
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '   ']));
+    }
+
+    public function testSearchMatchesPartOfTheNameInAnyCase(): void
+    {
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => 'holiday']));
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => 'AY CL']));
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => '.mp4']));
+        $this->assertFalse(matchesName('Holiday Clip.mp4', ['query' => 'beach']));
+    }
+
+    public function testSearchIgnoresSurroundingSpace(): void
+    {
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '  clip ']));
+    }
+
+    public function testSearchIsCarriedThroughTheViewState(): void
+    {
+        $_GET = ['q' => 'holiday', 'tag' => 'action'];
+
+        $this->assertSame('holiday', gridParams()['query']);
+        $this->assertSame('s=20&l=4&o=0&u=d&q=holiday&tag=action', gridQuery());
+        $this->assertSame('q=holiday', sanitizeGridQuery('q=holiday&evil=1'));
+    }
+
+    public function testFilterFormAndPagerCarryTheSearchTerm(): void
+    {
+        $_GET = ['q' => '"><script>alert(1)</script>'];
+
+        $form = renderFilterForm(gridParams());
+        $pager = renderPagerButton(gridParams(), 1, 'Next');
+
+        $this->assertStringContainsString('name="q"', $form);
+        $this->assertStringContainsString('value="&quot;&gt;&lt;script&gt;', $form);
+        $this->assertStringNotContainsString('<script>', $form);
+        $this->assertStringContainsString('name="q" value="&quot;&gt;&lt;script&gt;', $pager);
+        $this->assertStringNotContainsString('<script>', $pager);
     }
 
     public function testFilterFormOffersTheKnownTagsAndAuthorsAsAutocomplete(): void
