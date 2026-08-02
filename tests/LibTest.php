@@ -229,6 +229,24 @@ final class LibTest extends TestCase
         $this->assertStringNotContainsString('missing metadata', $html);
     }
 
+    //the date sort: the stored date, with the file's mtime behind it
+
+    public function testVideoDateUsesTheStoredDate(): void
+    {
+        $this->assertSame(
+            strtotime('2024-05-06'),
+            videoDate('kept.mp4', new Meta(0, [], [], '2024-05-06')),
+        );
+    }
+
+    public function testVideoDateFallsBackToTheFileWhenNothingIsStored(): void
+    {
+        //no date in the sidecar and no file behind the id: nothing to sort by,
+        //so the video sorts as the oldest rather than blowing up
+
+        $this->assertSame(0, videoDate('not-in-the-library.mp4', new Meta(0, [], [])));
+    }
+
     //filtering: comma-separated tags and authors, and a rating floor
 
     public function testFilterValuesSplitsAndTrimsAndDropsEmpties(): void
