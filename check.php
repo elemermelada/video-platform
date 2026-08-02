@@ -4,14 +4,10 @@ require_once("lib.php");
 
 nav_header("check.php");
 
-$vidz=glob("*.*");
+$vidz = glob("*.*");
 
 foreach ($vidz as $vid) {
-	
-	if (!file_exists("data/" . $vid . ".data")) {
-		echo $vid . "<p>";
-	}
-	
+    if (!file_exists("data/" . $vid . ".data")) {
+        echo $vid . "<p>";
+    }
 }
-
-?>

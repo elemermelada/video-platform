@@ -6,20 +6,18 @@ require_once("lib.php");
 
 $back = grid_url($_GET["ret"]);
 
-if ($_POST["data"]!="") {
+if ($_POST["data"] != "") {
+    file_put_contents("data/" . $_GET["vid"] . ".data", $_POST["data"]);
 
-	file_put_contents("data/" . $_GET["vid"] . ".data", $_POST["data"]);
+    //back to the same spot in the grid
 
-	//back to the same spot in the grid
-
-	header("Location: " . $back);
-	exit;
-
+    header("Location: " . $back);
+    exit;
 }
 
-	nav_header("edit.php", $back);
+nav_header("edit.php", $back);
 
-	echo '
+echo '
 <center>
 <video controls src="' . $_GET["vid"] . '" style="height:50%;"></video>
 <p>
@@ -31,5 +29,3 @@ if ($_POST["data"]!="") {
 <a href="' . htmlspecialchars($back) . '">&larr; Back to the grid</a>
 
 ';
-
-?>
