@@ -1,5 +1,9 @@
 <?php
 
+require_once("lib.php");
+
+nav_header("browse.php");
+
 $aths = array();
 $aths2 = array();
 $qa = array(); //number of vids per author
@@ -76,7 +80,7 @@ echo '<div style="vertical-align:top;display:inline-block;top:0;margin:15;">';
 //echo '<pre>';
 $count = 0;
 foreach ($aths as $ath) {
-    echo '<a href="search.php?author=' . $ath . '">' . $aths2[$count] . "</a><br>";
+    echo '<a href="index.php?author=' . $ath . '">' . $aths2[$count] . "</a><br>";
     $count += 1;
 }
 //echo '</pre>';
@@ -88,7 +92,7 @@ echo '<div style="vertical-align:top;display:inline-block;top:0;margin:15;">';
 //echo '<pre>';
 $count = 0;
 foreach ($tgs as $tg) {
-    echo '<a href="search.php?tag=' . $tg . '">' . $tgs2[$count] . "</a><br>";
+    echo '<a href="index.php?tag=' . $tg . '">' . $tgs2[$count] . "</a><br>";
     $count += 1;
 }
 //echo '</pre>';
