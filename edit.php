@@ -23,10 +23,20 @@ if (!videoExists($vid)) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $date = (string) ($_POST["date"] ?? "");
+
+    //"Now" overrides whatever the picker holds, and a first save is dated today
+    //so every sidecar written from here on carries a date
+
+    if (isset($_POST["now"]) || ($date === "" && !hasMeta($vid))) {
+        $date = Meta::today();
+    }
+
     saveMeta($vid, Meta::fromArray([
         "rate" => $_POST["rate"] ?? "",
         "tags" => $_POST["tags"] ?? "",
         "authors" => $_POST["authors"] ?? "",
+        "date" => $date,
     ]));
 
     //back to the same spot in the grid
@@ -47,6 +57,8 @@ echo '
 <input class="field-rate" type="number" min="0" max="5" name="rate" value="' . $meta->rate . '">
 <input class="tags-field" type="text" name="tags" placeholder="Tags (comma separated)" value="' . escapeHtml(implode(', ', $meta->tags)) . '">
 <input class="tags-field" type="text" name="authors" placeholder="Authors (comma separated)" value="' . escapeHtml(implode(', ', $meta->authors)) . '">
+<input class="field-date" type="date" name="date" title="Date the grid sorts by" value="' . escapeHtml($meta->dateOnly()) . '">
+<label class="check" title="Save with today&#039;s date, whatever the picker holds"><input type="checkbox" name="now" value="1"> Now</label>
 <input type="submit" value="Save">
 </form>
 <a href="' . escapeHtml($back) . '">&larr; Back to the grid</a>

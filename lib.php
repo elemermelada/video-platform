@@ -171,6 +171,10 @@ input, select {
 	font-size: 0.9rem;
 }
 
+/* the field styling above is for text boxes: a checkbox keeps its own look */
+
+input[type="checkbox"] { padding: 0; border: none; accent-color: var(--accent); }
+
 input[type="submit"] { cursor: pointer; background: var(--card); }
 input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -283,9 +287,12 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 
 .index > summary:hover { color: var(--accent); }
 
+/* auto-fit, not auto-fill: there are only ever three sections, and they should
+   share the whole width instead of leaving empty tracks beside them */
+
 .index .columns {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 14em), 1fr));
 	gap: var(--gap);
 	padding: 0 var(--gap) var(--gap);
 	border-top: solid 1px var(--border);
@@ -301,6 +308,7 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .player { display: block; width: 100%; max-height: 70vh; background: #000000; }
 .edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
 .edit-form .tags-field { flex: 1 1 16em; }
+.edit-form .check { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 ';
 }
 
@@ -437,6 +445,27 @@ function videoPath(string $vid): string
 function thumbUrl(string $vid): string
 {
     return 'thumbs/' . rawurlencode($vid) . '.png';
+}
+
+/**
+ * When a video is dated, for the grid's date sort: the date stored in its
+ * metadata, falling back to the file's mtime for sidecars written before the
+ * field existed (`php migrate.php --dates` stamps those).
+ *
+ * @param Meta|null $meta the metadata if the caller has it loaded already
+ */
+function videoDate(string $vid, ?Meta $meta = null): int
+{
+    $stored = ($meta ?? loadMeta($vid))->timestamp();
+
+    if ($stored !== null) {
+        return $stored;
+    }
+
+    $path = videoPath($vid);
+    $mtime = $path !== '' && is_file($path) ? filemtime($path) : false;
+
+    return $mtime === false ? 0 : $mtime;
 }
 
 /**
