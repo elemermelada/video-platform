@@ -289,6 +289,50 @@ final class LibTest extends TestCase
         $this->assertFalse(matchesFilters($meta, ['tag' => 'act', 'author' => '', 'rate' => '']));
     }
 
+    //the search box: a substring of the filename, and no metadata needed
+
+    public function testEmptySearchMatchesEveryName(): void
+    {
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '']));
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '   ']));
+    }
+
+    public function testSearchMatchesPartOfTheNameInAnyCase(): void
+    {
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => 'holiday']));
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => 'AY CL']));
+        $this->assertTrue(matchesName('Holiday Clip.mp4', ['query' => '.mp4']));
+        $this->assertFalse(matchesName('Holiday Clip.mp4', ['query' => 'beach']));
+    }
+
+    public function testSearchIgnoresSurroundingSpace(): void
+    {
+        $this->assertTrue(matchesName('clip.mp4', ['query' => '  clip ']));
+    }
+
+    public function testSearchIsCarriedThroughTheViewState(): void
+    {
+        $_GET = ['q' => 'holiday', 'tag' => 'action'];
+
+        $this->assertSame('holiday', gridParams()['query']);
+        $this->assertSame('s=20&l=4&o=0&u=d&q=holiday&tag=action', gridQuery());
+        $this->assertSame('q=holiday', sanitizeGridQuery('q=holiday&evil=1'));
+    }
+
+    public function testFilterFormAndPagerCarryTheSearchTerm(): void
+    {
+        $_GET = ['q' => '"><script>alert(1)</script>'];
+
+        $form = renderFilterForm(gridParams());
+        $pager = renderPagerButton(gridParams(), 1, 'Next');
+
+        $this->assertStringContainsString('name="q"', $form);
+        $this->assertStringContainsString('value="&quot;&gt;&lt;script&gt;', $form);
+        $this->assertStringNotContainsString('<script>', $form);
+        $this->assertStringContainsString('name="q" value="&quot;&gt;&lt;script&gt;', $pager);
+        $this->assertStringNotContainsString('<script>', $pager);
+    }
+
     public function testFilterFormOffersTheKnownTagsAndAuthorsAsAutocomplete(): void
     {
         $html = renderFilterForm(gridParams(), [
