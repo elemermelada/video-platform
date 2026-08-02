@@ -8,6 +8,13 @@ $matches = array();
 $metas = array();
 
 foreach (videoFiles() as $vid) {
+    //the name filter first: it costs nothing, and it can rule a video out
+    //before its sidecar is read
+
+    if (!matchesName($vid, $params)) {
+        continue;
+    }
+
     $meta = loadMeta($vid);
 
     if (matchesFilters($meta, $params)) {
