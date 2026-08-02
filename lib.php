@@ -283,9 +283,12 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 
 .index > summary:hover { color: var(--accent); }
 
+/* auto-fit, not auto-fill: there are only ever three sections, and they should
+   share the whole width instead of leaving empty tracks beside them */
+
 .index .columns {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 14em), 1fr));
 	gap: var(--gap);
 	padding: 0 var(--gap) var(--gap);
 	border-top: solid 1px var(--border);
