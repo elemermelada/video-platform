@@ -13,9 +13,19 @@ declare(strict_types=1);
 require_once __DIR__ . '/src/Meta.php';
 require_once __DIR__ . '/src/MetaStore.php';
 require_once __DIR__ . '/src/Migrator.php';
+require_once __DIR__ . '/src/VideoLibrary.php';
 
 use VideoPlatform\Meta;
 use VideoPlatform\MetaStore;
+use VideoPlatform\VideoLibrary;
+
+//everything that reaches the browser goes through here: filenames, tags and
+//authors are user data, and the filter values come straight off the query string
+
+function escapeHtml(string $value): string
+{
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
 
 //view state: the params that describe the current grid (page + filters)
 //
@@ -80,10 +90,34 @@ function gridQuery(?array $params = null): string
     }));
 }
 
+/**
+ * Rebuild a query string handed to us by a caller (edit.php's "ret") from the
+ * grid fields alone, so nothing else can ride along into a URL or a header.
+ */
+function sanitizeGridQuery(string $query): string
+{
+    $parsed = array();
+    parse_str($query, $parsed);
+
+    $fields = array();
+
+    foreach (array('p', 's', 'l', 'o', 'u', 'author', 'rate', 'tag') as $name) {
+        $value = $parsed[$name] ?? null;
+
+        if (is_scalar($value) && (string) $value !== '') {
+            $fields[$name] = (string) $value;
+        }
+    }
+
+    return http_build_query($fields);
+}
+
 //link back to the grid, keeping page & filters if we were given them
 
 function gridUrl(string $query = ''): string
 {
+    $query = sanitizeGridQuery($query);
+
     if ($query === '') {
         return 'index.php';
     }
@@ -141,6 +175,15 @@ function hasMeta(string $vid): bool
     return metaStore()->has($vid);
 }
 
+//the video library: its own directory, so the app's own files are not videos
+
+function videoLibrary(): VideoLibrary
+{
+    static $library = null;
+
+    return $library ??= new VideoLibrary(__DIR__ . '/videos', 'videos/');
+}
+
 /**
  * Every file the library treats as a video.
  *
@@ -148,7 +191,27 @@ function hasMeta(string $vid): bool
  */
 function videoFiles(): array
 {
-    return glob('*.*') ?: array();
+    return videoLibrary()->files();
+}
+
+function videoExists(string $vid): bool
+{
+    return videoLibrary()->has($vid);
+}
+
+function videoUrl(string $vid): string
+{
+    return videoLibrary()->url($vid);
+}
+
+function videoPath(string $vid): string
+{
+    return videoLibrary()->path($vid);
+}
+
+function thumbUrl(string $vid): string
+{
+    return 'thumbs/' . rawurlencode($vid) . '.png';
 }
 
 /**
@@ -218,7 +281,7 @@ function renderLinkList(array $values, string $param): string
     foreach ($values as $value) {
         array_push(
             $links,
-            '<a href="index.php?' . $param . '=' . urlencode($value) . '">' . $value . '</a>',
+            '<a href="index.php?' . $param . '=' . urlencode($value) . '">' . escapeHtml($value) . '</a>',
         );
     }
 
@@ -236,12 +299,12 @@ function renderSelect(string $name, string $selected, array $options, string $st
         $out .= ' style="' . $style . '"';
     }
 
-    $out .= ' name="' . $name . '">';
+    $out .= ' name="' . escapeHtml($name) . '">';
 
     foreach ($options as $value => $label) {
-        $out .= '<option value="' . $value . '"'
+        $out .= '<option value="' . escapeHtml((string) $value) . '"'
             . ((string) $value === $selected ? ' selected' : '')
-            . '>' . $label . '</option>';
+            . '>' . escapeHtml($label) . '</option>';
     }
 
     return $out . '</select>';
@@ -273,10 +336,10 @@ function renderFilterForm(array $params): string
 <input name="s" type="number" placeholder="Size of list" value="' . $params['size'] . '">
 <input name="l" type="number" placeholder="Size of line" value="' . $params['cols'] . '">
 <p>' . $sense . '
-<input style="height:1.4em;width:11.3em;" name="tag" placeholder="Tag" value="' . $params['tag'] . '">
+<input style="height:1.4em;width:11.3em;" name="tag" placeholder="Tag" value="' . escapeHtml($params['tag']) . '">
 <br>' . $order . '
-<input style="height:1.4em;width:8em;" name="author" placeholder="Author" value="' . $params['author'] . '">
-<input style="height:1.4em;width:3em;" name="rate" placeholder="Rating" type="number" value="' . $params['rate'] . '">
+<input style="height:1.4em;width:8em;" name="author" placeholder="Author" value="' . escapeHtml($params['author']) . '">
+<input style="height:1.4em;width:3em;" name="rate" placeholder="Rating" type="number" value="' . escapeHtml($params['rate']) . '">
 <p>
 <input type="submit">
 </form>';
@@ -295,11 +358,11 @@ function renderPagerButton(array $params, int $page, string $label): string
 
     foreach ($fields as $name => $value) {
         $out .= '
-	<input type="hidden" name="' . $name . '" value="' . $value . '">';
+	<input type="hidden" name="' . escapeHtml($name) . '" value="' . escapeHtml($value) . '">';
     }
 
     return $out . '
-	<input type="submit" value="' . $label . '">
+	<input type="submit" value="' . escapeHtml($label) . '">
 </form>';
 }
 
