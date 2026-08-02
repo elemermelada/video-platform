@@ -11,54 +11,33 @@ $tgs = array();
 $tgs2 = array();
 $qt = array(); //number of vids per tag
 
-foreach (glob("data/*.data") as $vid) {
-    $data = file_get_contents($vid);
+foreach (meta_store()->ids() as $vid) {
+    $meta = load_meta($vid);
+
     //get rate
 
-    $rate = substr($data, 0, 1);
-    $data = substr($data, 2);
-
-    $ratext = "";
-
-    for ($j = 0;$j < 5;$j++) {
-        if ($rate == 0) {
-            $ratext .= '<img style="width:0.75em;" src="thumbs/rating-off.png">';
-        } else {
-            $ratext .= '<img style="width:0.75em;" src="thumbs/rating-on.png">';
-            $rate -= 1;
-        }
-    }
+    $ratext = render_rating($meta->rate);
 
     //get tags
 
-    $tags = substr($data, 0, strpos($data, ";")) . ":";
-
-    while (strpos($tags, ":") != 0) {
-        if (!in_array(substr($tags, 0, strpos($tags, ":")), $tgs)) {
-            array_push($tgs, substr($tags, 0, strpos($tags, ":")));
+    foreach ($meta->tags as $tag) {
+        if (!in_array($tag, $tgs)) {
+            array_push($tgs, $tag);
             array_push($qt, 1);
         } else {
-            $qt[array_search(substr($tags, 0, strpos($tags, ":")), $tgs)] += 1;
+            $qt[array_search($tag, $tgs)] += 1;
         }
-
-        $tags = substr($tags, strpos($tags, ":") + 1);
     }
-
-    $data = substr($data, strpos($data, ";") + 1);
 
     //get authors
 
-    $authors = substr($data, 0, strpos($data, ";")) . ":";
-
-    while (strpos($authors, ":") != 0) {
-        if (!in_array(substr($authors, 0, strpos($authors, ":")), $aths)) {
-            array_push($aths, substr($authors, 0, strpos($authors, ":")));
+    foreach ($meta->authors as $author) {
+        if (!in_array($author, $aths)) {
+            array_push($aths, $author);
             array_push($qa, 1);
         } else {
-            $qa[array_search(substr($authors, 0, strpos($authors, ":")), $aths)] += 1;
+            $qa[array_search($author, $aths)] += 1;
         }
-
-        $authors = substr($authors, strpos($authors, ":") + 1);
     }
 }
 

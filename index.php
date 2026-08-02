@@ -31,38 +31,17 @@ $srate = $_GET['rate'];
 $match = array();
 
 foreach ($alle as $vid) {
-    $data = file_get_contents("data/" . $vid . ".data");
-    $rrate = substr($data, 0, 1);
-    $data = substr($data, 2);
-
-    $rtags = array();
-    $tags = substr($data, 0, strpos($data, ";")) . ":";
-
-    while (strpos($tags, ":") != 0) {
-        array_push($rtags, substr($tags, 0, strpos($tags, ":")));
-        $tags = substr($tags, strpos($tags, ":") + 1);
-    }
-
-    $data = substr($data, strpos($data, ";") + 1);
-
-    $authors = substr($data, 0, strpos($data, ";")) . ":";
-    $rauthors = array();
-
-    while (strpos($authors, ":") != 0) {
-        Array_Push($rauthors, substr($authors, 0, strpos($authors, ":")));
-
-        $authors = substr($authors, strpos($authors, ":") + 1);
-    }
+    $meta = load_meta($vid);
 
     $correct = true;
 
-    if (!(in_array($sauthor, $rauthors) or $sauthor == "")) {
+    if (!(in_array($sauthor, $meta->authors) or $sauthor == "")) {
         $correct = false;
     }
-    if (!(in_array($stag, $rtags) or $stag == "")) {
+    if (!(in_array($stag, $meta->tags) or $stag == "")) {
         $correct = false;
     }
-    if (!($srate == $rrate or $srate == "")) {
+    if (!($srate == $meta->rate or $srate == "")) {
         $correct = false;
     }
 
@@ -189,51 +168,29 @@ $ret = urlencode(grid_query());
 echo '<center><table style="table-layout: fixed;width:100%;"><tr>';
 
 for ($i = $siz * $_GET['p']; $i < $siz * $_GET['p'] + $siz; $i++) {
-    $vid = $glb[$i];
+    $vid = $glb[$i] ?? "";
+    $meta = load_meta($vid);
 
     //get rate
 
-    $data = file_get_contents("data/" . $vid . ".data");
-    $rate = substr($data, 0, 1);
-    $data = substr($data, 2);
-
-    $ratext = "";
-
-    for ($j = 0;$j < 5;$j++) {
-        if ($rate != "") {
-            if ($rate == 0) {
-                $ratext .= '<img style="width:0.75em;" src="thumbs/rating-off.png">';
-            } else {
-                $ratext .= '<img style="width:0.75em;" src="thumbs/rating-on.png">';
-                $rate -= 1;
-            }
-        }
-    }
+    $ratext = has_meta($vid) ? render_rating($meta->rate) : "";
 
     //get tags
 
-    $tags = substr($data, 0, strpos($data, ";")) . ":";
     $tegxt = "";
 
-    while (strpos($tags, ":") != 0) {
-        $tegxt .= '<a href="index.php?tag=' . substr($tags, 0, strpos($tags, ":")) . '">' . substr($tags, 0, strpos($tags, ":")) . "</a>, ";
-
-        $tags = substr($tags, strpos($tags, ":") + 1);
+    foreach ($meta->tags as $tag) {
+        $tegxt .= '<a href="index.php?tag=' . urlencode($tag) . '">' . $tag . "</a>, ";
     }
 
     $tegxt = substr($tegxt, 0, strlen($tegxt) - 2);
 
-    $data = substr($data, strpos($data, ";") + 1);
-
     //get authors
 
-    $authors = substr($data, 0, strpos($data, ";")) . ":";
     $autxt = "";
 
-    while (strpos($authors, ":") != 0) {
-        $autxt .= '<a href="index.php?author=' . substr($authors, 0, strpos($authors, ":")) . '">' . substr($authors, 0, strpos($authors, ":")) . "</a>, ";
-
-        $authors = substr($authors, strpos($authors, ":") + 1);
+    foreach ($meta->authors as $author) {
+        $autxt .= '<a href="index.php?author=' . urlencode($author) . '">' . $author . "</a>, ";
     }
 
     $autxt = substr($autxt, 0, strlen($autxt) - 2);
