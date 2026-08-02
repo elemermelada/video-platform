@@ -28,6 +28,8 @@ without it (the `src/` classes are loaded with bare requires).
 
        ffmpeg -ss 10 -i "videos/foo.mp4" -frames:v 1 "thumbs/foo.mp4.png"
 
+   Or let the editor capture one from the player: see [Thumbnails](#thumbnails).
+
 There is no auth. It's built for a trusted LAN; put it behind basic auth or a
 VPN if it's reachable from anywhere else.
 
@@ -38,7 +40,8 @@ VPN if it's reachable from anywhere else.
                  redirects back to the grid page/filters you came from)
     migrate.php  CLI one-off: legacy .data sidecars -> .json
     lib.php      shared page helpers (procedural, escapes all output)
-    src/         Meta, MetaStore, VideoLibrary, Migrator (PSR-4, unit-tested)
+    src/         Meta, MetaStore, VideoLibrary, Migrator, Thumbnailer
+                 (PSR-4, unit-tested)
     videos/      the video files (not the web root, so app files never list
                  as videos and query-string ids are validated against it)
     thumbs/      <video>.png thumbnails + err.png fallback
@@ -61,7 +64,26 @@ VPN if it's reachable from anywhere else.
   every tag and author with its video count — each re-filters the grid — plus
   the list of videos that have no metadata yet (each links to its editor).
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
-  authors. Saving writes `data/<filename>.json` and redirects back.
+  authors. Saving writes `data/<filename>.json` and redirects back. The
+  player also captures thumbnails — see below.
+
+## Thumbnails
+
+`edit.php` can turn the frame the player is showing into the thumbnail: scrub
+to the frame you want and press **Use current frame as thumbnail**. It runs
+ffmpeg, writes `thumbs/<video filename>.png` and shows the result under the
+player. Capture is synchronous, so a large file can take a few seconds.
+Without JavaScript the button still works and takes the first frame.
+
+ffmpeg is optional. It's looked for on `PATH`, and the button is replaced by a
+note when it isn't there. Where it isn't on `PATH` (XAMPP on Windows, mostly),
+point `VIDEO_PLATFORM_FFMPEG` at the binary — for Apache, in `httpd.conf`:
+
+    SetEnv VIDEO_PLATFORM_FFMPEG "C:/ffmpeg/bin/ffmpeg.exe"
+
+or before `php -S`:
+
+    VIDEO_PLATFORM_FFMPEG=/usr/local/bin/ffmpeg php -S 0.0.0.0:8080
 
 ## Metadata format
 
