@@ -195,6 +195,47 @@ final class LibTest extends TestCase
         $this->assertStringContainsString('href="index.php?p=2"', $html);
     }
 
+    //the tag/author index: one row per name, whatever each sidecar capitalised
+
+    public function testCountsListEachNameOnceHoweverItIsSpelled(): void
+    {
+        $metas = [
+            new Meta(0, ['Action', 'noir'], ['Ana']),
+            new Meta(0, ['action'], ['ana']),
+            new Meta(0, ['ACTION', 'noir'], []),
+        ];
+
+        $counts = countNames($metas);
+
+        $this->assertSame(['Action' => 3, 'noir' => 2], $counts['tags']);
+        $this->assertSame(['Ana' => 2], $counts['authors']);
+    }
+
+    public function testCountsAreVideosNotMentions(): void
+    {
+        //one sidecar naming a tag twice still carries it once
+
+        $counts = countNames([new Meta(0, ['action', 'Action'], [])]);
+
+        $this->assertSame(['action' => 1], $counts['tags']);
+    }
+
+    public function testCountsAreListedAsOneAlphabet(): void
+    {
+        $counts = countNames([new Meta(0, ['Zebra', 'apple', 'Banana'], [])]);
+
+        $this->assertSame(['apple', 'Banana', 'Zebra'], array_keys($counts['tags']));
+    }
+
+    public function testCountsSortNumericNamesWithoutTrippingOverTheKeys(): void
+    {
+        //PHP turns "2024" into an integer key on the way into the array
+
+        $counts = countNames([new Meta(0, ['2024', 'noir'], [])]);
+
+        $this->assertSame(['2024', 'noir'], array_map('strval', array_keys($counts['tags'])));
+    }
+
     //the tag/author index, folded into the grid page
 
     public function testIndexPanelListsCountsAndFilterLinks(): void
@@ -313,6 +354,16 @@ final class LibTest extends TestCase
         );
     }
 
+    public function testTheNameTiebreakDoesNotPutCapitalsFirst(): void
+    {
+        $dates = ['Zebra.mp4' => 100, 'apple.mp4' => 100, 'Banana.mp4' => 100];
+
+        $this->assertSame(
+            ['apple.mp4', 'Banana.mp4', 'Zebra.mp4'],
+            sortVideos(['Zebra.mp4', 'apple.mp4', 'Banana.mp4'], ['order' => 1, 'sense' => 'a'], $dates),
+        );
+    }
+
     public function testAnUndatedVideoSortsAsTheOldest(): void
     {
         $this->assertSame(
@@ -404,6 +455,18 @@ final class LibTest extends TestCase
         $this->assertFalse(matchesFilters($meta, ['tag' => 'act', 'author' => '', 'rate' => '']));
     }
 
+    public function testTagMatchingIgnoresCapitals(): void
+    {
+        //the tag typed into the filter and the tag on the video are the same
+        //name however either was capitalised
+
+        $meta = new Meta(0, ['action'], ['Ana']);
+
+        $this->assertTrue(matchesFilters($meta, ['tag' => 'Action', 'author' => '', 'rate' => '']));
+        $this->assertTrue(matchesFilters($meta, ['tag' => 'ACTION', 'author' => '', 'rate' => '']));
+        $this->assertTrue(matchesFilters($meta, ['tag' => '', 'author' => 'ana', 'rate' => '']));
+    }
+
     //the search box: a substring of the filename, and no metadata needed
 
     public function testEmptySearchMatchesEveryName(): void
@@ -483,5 +546,69 @@ final class LibTest extends TestCase
 
         $this->assertStringNotContainsString('<datalist', $html);
         $this->assertStringNotContainsString(' list="', $html);
+    }
+
+    public function testEditFormShowsTheStoredMetadataWhenNothingWasPosted(): void
+    {
+        $meta = new Meta(3, ['action', 'demo'], ['ana'], '2024-05-06');
+
+        $this->assertSame(
+            ['rate' => '3', 'tags' => 'action, demo', 'authors' => 'ana', 'date' => '2024-05-06', 'now' => false],
+            editFormFields([], $meta, $meta->dateOnly()),
+        );
+    }
+
+    public function testEditFormDateFallsBackWhenThereIsNoSidecarYet(): void
+    {
+        $fields = editFormFields([], Meta::empty(), '2020-01-01');
+
+        $this->assertSame('2020-01-01', $fields['date']);
+    }
+
+    public function testEditFormKeepsWhatWasPostedRatherThanWhatIsStored(): void
+    {
+        //what a capture posts along: the fields as they were typed, unsaved
+
+        $post = [
+            'form' => 'edit',
+            'thumb' => 'Use current frame as thumbnail',
+            'rate' => '5',
+            'tags' => 'noir, heist,',
+            'authors' => '',
+            'date' => '2025-02-03',
+            'now' => '1',
+        ];
+
+        $this->assertSame(
+            ['rate' => '5', 'tags' => 'noir, heist,', 'authors' => '', 'date' => '2025-02-03', 'now' => true],
+            editFormFields($post, new Meta(1, ['old'], ['ana'], '2024-05-06'), '2020-01-01'),
+        );
+    }
+
+    public function testEditFormKeepsAnEmptiedFieldEmptiedInsteadOfRefillingIt(): void
+    {
+        $post = ['form' => 'edit', 'rate' => '0', 'tags' => '', 'authors' => '', 'date' => ''];
+
+        $fields = editFormFields($post, new Meta(4, ['action'], ['ana'], '2024-05-06'), '2020-01-01');
+
+        $this->assertSame('', $fields['tags']);
+        $this->assertSame('', $fields['date']);
+        $this->assertSame('0', $fields['rate']);
+    }
+
+    public function testEditFormTakesNoFieldFromRequestsThatDidNotCarryTheForm(): void
+    {
+        //a stray "rate" on a request that is not the form is not the form
+
+        $fields = editFormFields(['rate' => '5'], new Meta(2, [], [], null), '2020-01-01');
+
+        $this->assertSame('2', $fields['rate']);
+    }
+
+    public function testEditFormIgnoresFieldsSentAsArrays(): void
+    {
+        $fields = editFormFields(['form' => 'edit', 'tags' => ['a', 'b']], Meta::empty(), '');
+
+        $this->assertSame('', $fields['tags']);
     }
 }

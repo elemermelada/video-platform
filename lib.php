@@ -13,11 +13,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/src/Meta.php';
 require_once __DIR__ . '/src/MetaStore.php';
 require_once __DIR__ . '/src/Migrator.php';
+require_once __DIR__ . '/src/Names.php';
 require_once __DIR__ . '/src/Thumbnailer.php';
 require_once __DIR__ . '/src/VideoLibrary.php';
 
 use VideoPlatform\Meta;
 use VideoPlatform\MetaStore;
+use VideoPlatform\Names;
 use VideoPlatform\Thumbnailer;
 use VideoPlatform\VideoLibrary;
 
@@ -311,13 +313,22 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .index .list { max-height: 40vh; overflow-y: auto; font-size: 0.9rem; }
 
 .player { display: block; width: 100%; max-height: 70vh; background: #000000; }
-.edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
+
+/* one form carries both the thumbnail panel and the metadata fields, so
+   capturing a frame submits the half-filled fields along and the redraw can
+   put them back. The panel is written after the fields and pulled above them
+   here: the first submit button in the markup is the one Enter presses, and
+   that has to be Save rather than the capture. */
+
+.edit-form { display: flex; flex-direction: column; align-items: stretch; gap: var(--gap); margin: var(--gap) 0; }
+.edit-form .fields { display: flex; flex-wrap: wrap; gap: 6px; }
 .edit-form .tags-field { flex: 1 1 16em; }
 .edit-form .check { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 
 /* the thumbnail panel under the player: capture button, message, preview */
 
-.thumb-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: var(--gap) 0; }
+.thumb-panel { order: -1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.thumb-panel p { margin: 0; }
 
 .notice {
 	padding: 6px 8px;
@@ -329,6 +340,11 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 }
 
 .notice.bad { border-color: var(--accent); color: var(--accent); }
+
+/* no thumbnail captured yet: the box is there for the script to fill, and
+   until it does it should not push the fields down */
+
+.thumb-preview:empty { display: none; }
 
 .thumb-preview img {
 	display: block;
@@ -582,7 +598,7 @@ function sortVideos(array $vids, array $params, array $dates = array()): array
 {
     if ($params['order'] == 1) {
         usort($vids, function (string $a, string $b) use ($dates) {
-            return array($dates[$a] ?? 0, $a) <=> array($dates[$b] ?? 0, $b);
+            return (($dates[$a] ?? 0) <=> ($dates[$b] ?? 0)) ?: Names::compare($a, $b);
         });
     }
 
@@ -668,18 +684,21 @@ function matchesName(string $vid, array $params): bool
  * Several tags (or authors) narrow: a video has to carry all of them. An empty
  * field filters nothing, and the rating is a floor, not an exact match.
  *
+ * A name matches whatever its capitals: the tag "Action" is the tag "action",
+ * so a filter typed by hand finds the videos however they were labelled.
+ *
  * @param array{tag: string, author: string, rate: string, ...} $params
  */
 function matchesFilters(Meta $meta, array $params): bool
 {
     foreach (filterValues($params['tag']) as $tag) {
-        if (!in_array($tag, $meta->tags, true)) {
+        if (!Names::contains($meta->tags, $tag)) {
             return false;
         }
     }
 
     foreach (filterValues($params['author']) as $author) {
-        if (!in_array($author, $meta->authors, true)) {
+        if (!Names::contains($meta->authors, $author)) {
             return false;
         }
     }
@@ -698,22 +717,69 @@ function matchesFilters(Meta $meta, array $params): bool
  */
 function metaCounts(): array
 {
-    $counts = array('tags' => array(), 'authors' => array());
+    $metas = array();
 
     foreach (metaStore()->ids() as $vid) {
-        $meta = loadMeta($vid);
+        $metas[] = loadMeta($vid);
+    }
 
+    return countNames($metas);
+}
+
+/**
+ * How many of these videos carry each tag and each author.
+ *
+ * Spellings that differ only in case are one name, counted once and listed
+ * once: filtering does not tell them apart either, so a second row would link
+ * to the same videos under a total that disagreed with it. The first spelling
+ * offered is the one shown.
+ *
+ * @param list<Meta> $metas
+ *
+ * @return array{tags: array<string, int>, authors: array<string, int>}
+ */
+function countNames(array $metas): array
+{
+    $counts = array('tags' => array(), 'authors' => array());
+
+    //by folded key while counting, so the shown spelling can stay whatever the
+    //first sidecar called it
+
+    $shown = array('tags' => array(), 'authors' => array());
+
+    foreach ($metas as $meta) {
         $values = array('tags' => $meta->tags, 'authors' => $meta->authors);
 
         foreach ($values as $field => $names) {
+            //a count is videos, not mentions: a sidecar that lists a name twice
+            //(or twice over, in two capitalisations) still carries it once
+
+            $seen = array();
+
             foreach ($names as $name) {
+                $key = Names::key($name);
+
+                if (isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+                $name = $shown[$field][$key] ??= $name;
+
                 $counts[$field][$name] = ($counts[$field][$name] ?? 0) + 1;
             }
         }
     }
 
-    ksort($counts['tags']);
-    ksort($counts['authors']);
+    //a name that reads as a number is an integer key by the time it is in the
+    //array, so the comparator is handed strings rather than tripping over one
+
+    $order = function (int|string $a, int|string $b): int {
+        return Names::compare((string) $a, (string) $b);
+    };
+
+    uksort($counts['tags'], $order);
+    uksort($counts['authors'], $order);
 
     return $counts;
 }
@@ -948,6 +1014,55 @@ function renderIndexPanel(array $counts, array $incomplete): string
 </div>
 </details>
 ';
+}
+
+/**
+ * The values the edit form's fields are drawn with.
+ *
+ * A request that carried the form wins over what is on disk, so redrawing the
+ * page after a capture — or after one that failed — puts back exactly what was
+ * typed, down to the spacing, instead of rolling the fields back to the
+ * sidecar. Anything else (arriving on the page, coming back from a save) is
+ * drawn from the stored metadata.
+ *
+ * @param array<string, mixed> $post
+ * @param string               $date the value the picker opens on when the request carried no form:
+ *                                   the stored date, or the one a first save would stamp
+ *
+ * @return array{rate: string, tags: string, authors: string, date: string, now: bool}
+ */
+function editFormFields(array $post, Meta $meta, string $date): array
+{
+    if (($post['form'] ?? '') !== 'edit') {
+        return array(
+            'rate' => (string) $meta->rate,
+            'tags' => implode(', ', $meta->tags),
+            'authors' => implode(', ', $meta->authors),
+            'date' => $date,
+            'now' => false,
+        );
+    }
+
+    return array(
+        'rate' => postedField($post, 'rate'),
+        'tags' => postedField($post, 'tags'),
+        'authors' => postedField($post, 'authors'),
+        'date' => postedField($post, 'date'),
+        'now' => isset($post['now']),
+    );
+}
+
+/**
+ * One posted field as a string. A field a caller sent as an array (or left
+ * out) is no field at all rather than a warning or the word "Array".
+ *
+ * @param array<string, mixed> $post
+ */
+function postedField(array $post, string $name): string
+{
+    $value = $post[$name] ?? '';
+
+    return is_scalar($value) ? (string) $value : '';
 }
 
 /**

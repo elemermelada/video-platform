@@ -58,23 +58,28 @@ VPN if it's reachable from anywhere else.
 - **Filter form** (sticky bar): `Search names` is a case-insensitive substring
   match on the filename — it needs no metadata, so a video with no sidecar yet
   is findable too. `Tags` and `Authors` are comma-separated and
-  conjunctive — a video must carry *all* listed values. `Rating ≥` is a
-  floor, not an exact match. Known tags/authors autocomplete via
+  conjunctive — a video must carry *all* listed values — and match without
+  regard to case, so `Action` finds the videos labelled `action`. `Rating ≥` is
+  a floor, not an exact match. Known tags/authors autocomplete via
   `<datalist>` (a small inline script keeps completion working after the
   first comma; without JS the first value still completes).
 - **Sort**: by name or date, ascending/descending; the grid opens on the date,
   latest first. The date is the one stored in the sidecar; videos whose sidecar
   has none (or that have no sidecar) fall back to the file's creation date —
   the same date a first save would stamp them with — and videos sharing a date
-  keep name order. `Per page` and `Per row` control paging and
-  grid density; narrow windows drop columns automatically.
+  keep name order. Name order ignores case, so `apple.mp4` sits next to
+  `Apple.mp4` instead of every capital being herded to the top. `Per page` and
+  `Per row` control paging and grid density; narrow windows drop columns
+  automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
   the **Incomplete** list (each links to its editor): videos with no sidecar
   yet, and videos whose sidecar has no tags or no authors. Those are as
   unfindable through the tag and author filters as a video with no metadata at
   all, so they're listed together. A missing rating or date doesn't count —
-  both have a sensible default and neither is a filter.
+  both have a sensible default and neither is a filter. Spellings that differ
+  only in case are one entry, counted once and listed under whichever spelling
+  comes first, since filtering does not tell them apart either.
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
   authors, and the date the grid sorts by (a native datepicker, plus a `Now`
   checkbox that saves with today's date whatever the picker holds). A video
@@ -88,7 +93,12 @@ VPN if it's reachable from anywhere else.
 to the frame you want and press **Use current frame as thumbnail**. It runs
 ffmpeg, writes `thumbs/<video filename>.png` and shows the result under the
 player. Capture is synchronous, so a large file can take a few seconds.
-Without JavaScript the button still works and takes the first frame.
+
+Capturing is not saving: it writes the PNG and nothing else, and the metadata
+fields keep whatever you have typed into them. The page never navigates — the
+capture goes out over `fetch()` and only the preview under the player changes.
+Without JavaScript the button still works, takes the first frame, and posts the
+fields along so the redrawn page puts them back as you left them.
 
 ffmpeg is optional. It's looked for on `PATH`, and the button is replaced by a
 note when it isn't there. Where it isn't on `PATH` (XAMPP on Windows, mostly),

@@ -28,6 +28,15 @@ final class VideoLibraryTest extends TempDirTestCase
         $this->assertSame(['clip.mp4', 'other.WEBM'], $this->library->files());
     }
 
+    public function testListsFilesAsOneAlphabetRatherThanCapitalsFirst(): void
+    {
+        $this->write('Zebra.mp4', '');
+        $this->write('apple.mp4', '');
+        $this->write('Banana.mp4', '');
+
+        $this->assertSame(['apple.mp4', 'Banana.mp4', 'Zebra.mp4'], $this->library->files());
+    }
+
     public function testListsNothingWhenTheLibraryDirectoryIsMissing(): void
     {
         $library = new VideoLibrary($this->dir . DIRECTORY_SEPARATOR . 'nope');

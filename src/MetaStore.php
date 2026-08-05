@@ -70,7 +70,7 @@ final class MetaStore
     }
 
     /**
-     * Video ids of every JSON sidecar in the store, sorted.
+     * Video ids of every JSON sidecar in the store, in Names order.
      *
      * @return list<string>
      */
@@ -101,9 +101,7 @@ final class MetaStore
             $ids[] = substr(basename($match), 0, -strlen($extension));
         }
 
-        sort($ids);
-
-        return $ids;
+        return Names::sort($ids);
     }
 
     /**
