@@ -530,6 +530,35 @@ function videoDate(string $vid, ?Meta $meta = null): int
 }
 
 /**
+ * The grid's matches in the order the view state asks for.
+ *
+ * The comparison is always ascending -- by name, or by date with the name
+ * behind it so a batch sharing one date keeps a stable order -- and the sense
+ * is applied on top of it. Sorting descending here as well would have the two
+ * cancel out, which is how "Ascending" used to hand back the newest videos.
+ *
+ * @param list<string>                    $vids   in name order, as the library lists them
+ * @param array{order: int, sense: string} $params the view state
+ * @param array<string, int>              $dates  by video id; only read for the date order
+ *
+ * @return list<string>
+ */
+function sortVideos(array $vids, array $params, array $dates = array()): array
+{
+    if ($params['order'] == 1) {
+        usort($vids, function (string $a, string $b) use ($dates) {
+            return array($dates[$a] ?? 0, $a) <=> array($dates[$b] ?? 0, $b);
+        });
+    }
+
+    if ($params['sense'] == 'd') {
+        $vids = array_reverse($vids);
+    }
+
+    return array_values($vids);
+}
+
+/**
  * Videos with no metadata sidecar yet.
  *
  * @return list<string>

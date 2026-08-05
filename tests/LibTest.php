@@ -247,6 +247,60 @@ final class LibTest extends TestCase
         $this->assertSame(0, videoDate('not-in-the-library.mp4', new Meta(0, [], [])));
     }
 
+    //the order the grid lists its matches in: name or date, ascending or not
+
+    /** @return array<string, int> */
+    private function dates(): array
+    {
+        return [
+            'mid.mp4' => strtotime('2024-05-06'),
+            'new.mp4' => strtotime('2025-01-02'),
+            'old.mp4' => strtotime('2023-03-04'),
+        ];
+    }
+
+    public function testAscendingDateOrderPutsTheOldestVideoFirst(): void
+    {
+        $this->assertSame(
+            ['old.mp4', 'mid.mp4', 'new.mp4'],
+            sortVideos(['mid.mp4', 'new.mp4', 'old.mp4'], ['order' => 1, 'sense' => 'a'], $this->dates()),
+        );
+    }
+
+    public function testDescendingDateOrderPutsTheLatestVideoFirst(): void
+    {
+        $this->assertSame(
+            ['new.mp4', 'mid.mp4', 'old.mp4'],
+            sortVideos(['mid.mp4', 'new.mp4', 'old.mp4'], ['order' => 1, 'sense' => 'd'], $this->dates()),
+        );
+    }
+
+    public function testVideosSharingTheSameDateAreOrderedByName(): void
+    {
+        $dates = ['b.mp4' => 100, 'a.mp4' => 100, 'c.mp4' => 200];
+
+        $this->assertSame(
+            ['a.mp4', 'b.mp4', 'c.mp4'],
+            sortVideos(['c.mp4', 'b.mp4', 'a.mp4'], ['order' => 1, 'sense' => 'a'], $dates),
+        );
+    }
+
+    public function testAnUndatedVideoSortsAsTheOldest(): void
+    {
+        $this->assertSame(
+            ['none.mp4', 'old.mp4'],
+            sortVideos(['old.mp4', 'none.mp4'], ['order' => 1, 'sense' => 'a'], $this->dates()),
+        );
+    }
+
+    public function testNameOrderKeepsTheLibraryOrderAndReversesItDescending(): void
+    {
+        $names = ['a.mp4', 'b.mp4', 'c.mp4'];
+
+        $this->assertSame($names, sortVideos($names, ['order' => 0, 'sense' => 'a']));
+        $this->assertSame(['c.mp4', 'b.mp4', 'a.mp4'], sortVideos($names, ['order' => 0, 'sense' => 'd']));
+    }
+
     //filtering: comma-separated tags and authors, and a rating floor
 
     public function testFilterValuesSplitsAndTrimsAndDropsEmpties(): void
