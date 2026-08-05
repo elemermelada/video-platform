@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace VideoPlatform;
 
 /**
- * One-off conversion of legacy `.data` sidecars into `.json`, and the one-off
- * date backfill that lets the mtime fallback in the date sort go away.
+ * One-off conversion of legacy `.data` sidecars into `.json`, the one-off date
+ * backfill that lets the mtime fallback in the date sort go away, and the
+ * clean-up of sidecars poisoned by a bad batch of metadata.
  */
 final class Migrator
 {
@@ -159,5 +160,80 @@ final class Migrator
         }
 
         return ['stamped' => $stamped, 'created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Clear the sidecars poisoned by one bad batch of metadata: every sidecar
+     * carrying exactly the tags and authors given (and exactly the rating, when
+     * one is given) has its tags and authors emptied.
+     *
+     * The match is exact on purpose, so it cannot touch a sidecar somebody has
+     * since worked on: a sidecar with all the listed tags *and one more* is not
+     * the same sidecar the bad batch wrote, and is left alone. Order and
+     * repetition do not matter -- the lists are compared as sets -- but the
+     * values are compared as the grid's filters compare them, case and all.
+     *
+     * The rating is only cleared when one was given to match on; there is no way
+     * to tell a rating the bad batch wrote from one somebody meant otherwise.
+     * The date is always kept: it says when the video arrived, not what the bad
+     * batch thought of it.
+     *
+     * @param list<string> $tags    the exact tags a poisoned sidecar carries
+     * @param list<string> $authors the exact authors a poisoned sidecar carries
+     * @param ?int         $rate    the exact rating, or null to match any rating and keep it
+     * @param bool         $dryRun  report what would happen without touching disk
+     *
+     * @return array{cleared: list<string>, skipped: list<string>}
+     */
+    public function clearPoisoned(array $tags, array $authors, ?int $rate = null, bool $dryRun = false): array
+    {
+        $cleared = [];
+        $skipped = [];
+
+        foreach ($this->store->ids() as $vid) {
+            $meta = $this->store->load($vid);
+
+            $matches = self::sameValues($meta->tags, $tags)
+                && self::sameValues($meta->authors, $authors)
+                && ($rate === null || $meta->rate === $rate);
+
+            if (!$matches) {
+                $skipped[] = $vid;
+
+                continue;
+            }
+
+            if (!$dryRun) {
+                $this->store->save($vid, new Meta($rate === null ? $meta->rate : 0, [], [], $meta->date));
+            }
+
+            $cleared[] = $vid;
+        }
+
+        return ['cleared' => $cleared, 'skipped' => $skipped];
+    }
+
+    /**
+     * Do two lists hold the same values, ignoring order and repetition?
+     *
+     * @param list<string> $left
+     * @param list<string> $right
+     */
+    private static function sameValues(array $left, array $right): bool
+    {
+        $left = array_unique($left);
+        $right = array_unique($right);
+
+        //most sidecars are not the ones being looked for, and the count rules
+        //most of those out without sorting anything
+
+        if (count($left) !== count($right)) {
+            return false;
+        }
+
+        sort($left);
+        sort($right);
+
+        return array_values($left) === array_values($right);
     }
 }

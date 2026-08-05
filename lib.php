@@ -610,15 +610,32 @@ function sortVideos(array $vids, array $params, array $dates = array()): array
 }
 
 /**
- * Videos with no metadata sidecar yet.
+ * Videos whose metadata still wants filling in: no sidecar at all, or one with
+ * no tags or no authors.
+ *
+ * A sidecar with a rating and nothing else is as unfindable through the tag and
+ * author filters as a video with no sidecar, so the panel lists both together —
+ * the list is there to be worked through, not to report what exists on disk.
+ * The rating and the date are not part of it: both have a sensible default
+ * (unrated, and the file's own date), neither is a filter you can miss a video
+ * through.
  *
  * @return list<string>
  */
-function videosMissingMeta(): array
+function videosIncomplete(): array
 {
     return array_values(array_filter(videoFiles(), function (string $vid) {
-        return !hasMeta($vid);
+        return metaIncomplete(hasMeta($vid) ? loadMeta($vid) : null);
     }));
+}
+
+/**
+ * Is there still metadata to fill in? $meta is null for a video with no sidecar,
+ * which is the emptiest case of the same thing.
+ */
+function metaIncomplete(?Meta $meta): bool
+{
+    return $meta === null || $meta->tags === array() || $meta->authors === array();
 }
 
 /**
@@ -971,19 +988,19 @@ function renderCountList(array $counts, string $param): string
  * sidebar, and on a phone it costs one line until it is opened.
  *
  * @param array{tags: array<string, int>, authors: array<string, int>} $counts
- * @param list<string>                                                 $missing videos with no sidecar yet
+ * @param list<string>                                                 $incomplete videos with no sidecar, tags or authors
  */
-function renderIndexPanel(array $counts, array $missing): string
+function renderIndexPanel(array $counts, array $incomplete): string
 {
     $summary = count($counts['tags']) . ' tags &middot; ' . count($counts['authors']) . ' authors';
 
-    if ($missing !== array()) {
-        $summary .= ' &middot; ' . count($missing) . ' missing metadata';
+    if ($incomplete !== array()) {
+        $summary .= ' &middot; ' . count($incomplete) . ' incomplete';
     }
 
     $links = '';
 
-    foreach ($missing as $vid) {
+    foreach ($incomplete as $vid) {
         $links .= '<a href="edit.php?vid=' . urlencode($vid) . '">' . escapeHtml($vid) . '</a><br>';
     }
 
@@ -992,7 +1009,7 @@ function renderIndexPanel(array $counts, array $missing): string
 <div class="columns">
 <section><h2>Authors</h2><div class="list">' . renderCountList($counts['authors'], 'author') . '</div></section>
 <section><h2>Tags</h2><div class="list">' . renderCountList($counts['tags'], 'tag') . '</div></section>
-<section><h2>Missing metadata</h2><div class="list">'
+<section><h2>Incomplete</h2><div class="list">'
         . ($links === '' ? '<span class="count">none</span>' : $links) . '</div></section>
 </div>
 </details>

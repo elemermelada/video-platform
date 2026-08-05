@@ -53,7 +53,7 @@ renderBar("index.php", "index.php", $params, array(
     'authors' => array_map('strval', array_keys($counts['authors'])),
 ));
 
-echo renderIndexPanel($counts, videosMissingMeta());
+echo renderIndexPanel($counts, videosIncomplete());
 
 //auto-fill tracks: a short page needs no padding cells, and a card can never
 //stretch a row on its own

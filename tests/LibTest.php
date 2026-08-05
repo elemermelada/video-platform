@@ -251,7 +251,23 @@ final class LibTest extends TestCase
         $this->assertStringContainsString('1 tags &middot; 1 authors', $html);
     }
 
-    public function testIndexPanelListsVideosMissingMetadataAsEditLinks(): void
+    public function testMetaIsIncompleteWithNoSidecarNoTagsOrNoAuthors(): void
+    {
+        $this->assertTrue(metaIncomplete(null));
+        $this->assertTrue(metaIncomplete(new Meta(0, [], [])));
+        $this->assertTrue(metaIncomplete(new Meta(5, ['action'], [])));
+        $this->assertTrue(metaIncomplete(new Meta(5, [], ['ana'])));
+    }
+
+    public function testMetaIsCompleteWithBothTagsAndAuthors(): void
+    {
+        //an unrated, undated sidecar is complete all the same: neither is a
+        //filter a video can go missing through
+
+        $this->assertFalse(metaIncomplete(new Meta(0, ['action'], ['ana'])));
+    }
+
+    public function testIndexPanelListsIncompleteVideosAsEditLinks(): void
     {
         $counts = ['tags' => [], 'authors' => []];
 
@@ -259,7 +275,7 @@ final class LibTest extends TestCase
 
         $this->assertStringContainsString('href="edit.php?vid=a%26b.mp4"', $html);
         $this->assertStringContainsString('a&amp;b.mp4', $html);
-        $this->assertStringContainsString('1 missing metadata', $html);
+        $this->assertStringContainsString('1 incomplete', $html);
     }
 
     public function testIndexPanelSaysNoneWhenThereIsNothingToList(): void
@@ -267,7 +283,7 @@ final class LibTest extends TestCase
         $html = renderIndexPanel(['tags' => [], 'authors' => []], []);
 
         $this->assertSame(3, substr_count($html, '<span class="count">none</span>'));
-        $this->assertStringNotContainsString('missing metadata', $html);
+        $this->assertStringNotContainsString('1 incomplete', $html);
     }
 
     //the date sort: the stored date, with the file's mtime behind it
