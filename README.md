@@ -40,7 +40,8 @@ VPN if it's reachable from anywhere else.
                  redirects back to the grid page/filters you came from)
     migrate.php  CLI one-off: legacy .data sidecars -> .json, --dates to stamp
                  dateless sidecars from the filesystem, --restamp to re-date
-                 the whole library (overwrites, so it asks first)
+                 the whole library (overwrites, so it asks first), --clear to
+                 empty the sidecars a bad import poisoned
     lib.php      shared page helpers (procedural, escapes all output)
     src/         Meta, MetaStore, VideoLibrary, Migrator, Thumbnailer
                  (PSR-4, unit-tested)
@@ -157,6 +158,31 @@ no video behind it is not touched either (there's no file to read a date from).
 PHP has no portable creation time: on Windows `filectime()` really is it, while
 on unix it's the inode's last change time, with the mtime as the fallback on
 both.
+
+### Clearing poisoned sidecars
+
+When a bad import has written the same wrong tags and authors across the
+library, `--clear` empties them wherever they turn up **exactly** as that import
+wrote them:
+
+    php migrate.php --clear --tags=auto,import --authors=bot --dry-run
+    php migrate.php --clear --tags=auto,import --authors=bot --rate=3
+    php migrate.php --clear --tags= --authors= --rate=1 --yes
+
+Both lists are required and comma-separated; either may be empty (`--tags=`),
+which selects sidecars carrying none. A sidecar matches only if it has all the
+listed tags **and no others**, and likewise for the authors — one that carries
+an extra tag is one somebody has worked on since, and it is left alone. Order
+and repetition don't matter; the values are compared case-sensitively, as the
+grid's filters compare them.
+
+`--rate` is optional and, unlike the grid's `Rating ≥`, it is an exact match:
+give it and only sidecars with that rating match, and their rating is cleared to
+0 as well. Leave it out and the rating is neither matched nor touched — there's
+no telling a rating the import wrote from one somebody meant.
+
+The stored date is always kept. Like `--restamp`, this throws metadata away, so
+it lists what matched and asks before writing (`--yes` skips the prompt).
 
 ## Development
 
