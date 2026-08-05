@@ -46,7 +46,10 @@ function gridParams(): array
         'page' => max(0, (int) ($_GET['p'] ?? 0)),
         'size' => $size > 0 ? $size : 20,
         'cols' => $cols > 0 ? $cols : 4,
-        'order' => ($_GET['o'] ?? '') == 1 ? 1 : 0,
+        //date, latest first, unless the form says otherwise: a library grows
+        //at the end, so what was just added is what the grid should open on
+
+        'order' => ($_GET['o'] ?? '1') == 1 ? 1 : 0,
         'sense' => ($_GET['u'] ?? '') === 'a' ? 'a' : 'd',
         'query' => (string) ($_GET['q'] ?? ''),
         'tag' => (string) ($_GET['tag'] ?? ''),

@@ -69,7 +69,7 @@ final class LibTest extends TestCase
     {
         $_GET = ['tag' => 'action', 'p' => '0'];
 
-        $this->assertSame('s=20&l=4&o=0&u=d&tag=action', gridQuery());
+        $this->assertSame('s=20&l=4&o=1&u=d&tag=action', gridQuery());
     }
 
     public function testSanitizeGridQueryKeepsOnlyTheGridFields(): void
@@ -293,6 +293,21 @@ final class LibTest extends TestCase
         );
     }
 
+    public function testTheGridOpensOnTheLatestVideosByDefault(): void
+    {
+        $params = gridParams();
+
+        $this->assertSame(1, $params['order']);
+        $this->assertSame('d', $params['sense']);
+    }
+
+    public function testNameOrderIsStillAskedForWithOrderZero(): void
+    {
+        $_GET = ['o' => '0'];
+
+        $this->assertSame(0, gridParams()['order']);
+    }
+
     public function testNameOrderKeepsTheLibraryOrderAndReversesItDescending(): void
     {
         $names = ['a.mp4', 'b.mp4', 'c.mp4'];
@@ -387,7 +402,7 @@ final class LibTest extends TestCase
         $_GET = ['q' => 'holiday', 'tag' => 'action'];
 
         $this->assertSame('holiday', gridParams()['query']);
-        $this->assertSame('s=20&l=4&o=0&u=d&q=holiday&tag=action', gridQuery());
+        $this->assertSame('s=20&l=4&o=1&u=d&q=holiday&tag=action', gridQuery());
         $this->assertSame('q=holiday', sanitizeGridQuery('q=holiday&evil=1'));
     }
 

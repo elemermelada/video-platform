@@ -60,10 +60,11 @@ VPN if it's reachable from anywhere else.
   floor, not an exact match. Known tags/authors autocomplete via
   `<datalist>` (a small inline script keeps completion working after the
   first comma; without JS the first value still completes).
-- **Sort**: by name or date, ascending/descending. The date is the one stored
-  in the sidecar; videos whose sidecar has none (or that have no sidecar) fall
-  back to the file's mtime. `Per page` and `Per row` control paging and grid
-  density; narrow windows drop columns automatically.
+- **Sort**: by name or date, ascending/descending; the grid opens on the date,
+  latest first. The date is the one stored in the sidecar; videos whose sidecar
+  has none (or that have no sidecar) fall back to the file's mtime, and videos
+  sharing a date keep name order. `Per page` and `Per row` control paging and
+  grid density; narrow windows drop columns automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
   the list of videos that have no metadata yet (each links to its editor).
