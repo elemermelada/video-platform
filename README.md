@@ -70,7 +70,11 @@ VPN if it's reachable from anywhere else.
   grid density; narrow windows drop columns automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
-  the list of videos that have no metadata yet (each links to its editor).
+  the **Incomplete** list (each links to its editor): videos with no sidecar
+  yet, and videos whose sidecar has no tags or no authors. Those are as
+  unfindable through the tag and author filters as a video with no metadata at
+  all, so they're listed together. A missing rating or date doesn't count —
+  both have a sensible default and neither is a filter.
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
   authors, and the date the grid sorts by (a native datepicker, plus a `Now`
   checkbox that saves with today's date whatever the picker holds). A video
