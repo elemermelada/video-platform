@@ -512,24 +512,56 @@ function thumbUrl(string $vid): string
 }
 
 /**
+ * When a video file was created, as a unix timestamp, or null when there is
+ * nothing to read (no such file, or the stat failed).
+ *
+ * PHP has no portable creation time: filectime() *is* the creation time on
+ * Windows, which is what this app runs on, while on unix it is the inode's last
+ * change time. The mtime is the fallback either way, so a filesystem that
+ * reports neither gives a null rather than a 1970 date.
+ */
+function videoCreated(string $vid): ?int
+{
+    $path = videoPath($vid);
+
+    if ($path === '' || !is_file($path)) {
+        return null;
+    }
+
+    foreach (array(@filectime($path), @filemtime($path)) as $stamp) {
+        if (is_int($stamp) && $stamp > 0) {
+            return $stamp;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * The date a video's first sidecar is stamped with: when its file was created,
+ * or today when the filesystem has nothing to say.
+ */
+function defaultVideoDate(string $vid): string
+{
+    $stamp = videoCreated($vid);
+
+    return $stamp === null ? Meta::today() : date(Meta::DATE_FORMAT, $stamp);
+}
+
+/**
  * When a video is dated, for the grid's date sort: the date stored in its
- * metadata, falling back to the file's mtime for sidecars written before the
+ * metadata, falling back to the file itself for sidecars written before the
  * field existed (`php migrate.php --dates` stamps those).
+ *
+ * The fallback is the date videoCreated() reads, so an undated video sorts
+ * where a first save from edit.php would put it. One with nothing readable
+ * behind it sorts as the oldest rather than blowing up.
  *
  * @param Meta|null $meta the metadata if the caller has it loaded already
  */
 function videoDate(string $vid, ?Meta $meta = null): int
 {
-    $stored = ($meta ?? loadMeta($vid))->timestamp();
-
-    if ($stored !== null) {
-        return $stored;
-    }
-
-    $path = videoPath($vid);
-    $mtime = $path !== '' && is_file($path) ? filemtime($path) : false;
-
-    return $mtime === false ? 0 : $mtime;
+    return ($meta ?? loadMeta($vid))->timestamp() ?? videoCreated($vid) ?? 0;
 }
 
 /**

@@ -189,6 +189,93 @@ final class MigratorTest extends TempDirTestCase
         $this->assertSame(['stamped' => [], 'skipped' => []], $result);
     }
 
+    //the restamp: date a whole library from the filesystem, overwriting
+
+    public function testRestampCreatesMissingSidecarsAndOverwritesStoredDates(): void
+    {
+        $this->write('dated.mp4.json', '{"rate":4,"tags":["keep"],"authors":["keep"],"date":"2020-01-02"}');
+
+        $result = $this->migrator->restampDates(
+            ['dated.mp4', 'bare.mkv'],
+            $this->stampOf(['dated.mp4' => '2024-05-06', 'bare.mkv' => '2023-11-12']),
+        );
+
+        $this->assertSame(['dated.mp4', 'bare.mkv'], $result['stamped']);
+        $this->assertSame(['bare.mkv'], $result['created']);
+        $this->assertSame([], $result['skipped']);
+
+        //the stored date goes, the rest of the metadata stays
+
+        $dated = $this->store->load('dated.mp4');
+        $this->assertSame('2024-05-06', $dated->date);
+        $this->assertSame(4, $dated->rate);
+        $this->assertSame(['keep'], $dated->tags);
+        $this->assertSame(['keep'], $dated->authors);
+
+        $bare = $this->store->load('bare.mkv');
+        $this->assertSame('2023-11-12', $bare->date);
+        $this->assertSame(0, $bare->rate);
+        $this->assertSame([], $bare->tags);
+    }
+
+    public function testRestampSkipsVideosWithNoReadableTimestamp(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[],"date":"2020-01-02"}');
+
+        $result = $this->migrator->restampDates(['clip.mp4'], function (string $vid): ?int {
+            return null;
+        });
+
+        $this->assertSame([], $result['stamped']);
+        $this->assertSame([], $result['created']);
+        $this->assertSame(['clip.mp4'], $result['skipped']);
+
+        //nothing readable behind it, so what was stored is left alone
+
+        $this->assertSame('2020-01-02', $this->store->load('clip.mp4')->date);
+    }
+
+    public function testRestampDryRunWritesNothing(): void
+    {
+        $this->write('clip.mp4.json', '{"rate":0,"tags":[],"authors":[],"date":"2020-01-02"}');
+
+        $result = $this->migrator->restampDates(
+            ['clip.mp4', 'bare.mkv'],
+            $this->stampOf(['clip.mp4' => '2024-05-06', 'bare.mkv' => '2024-05-06']),
+            dryRun: true,
+        );
+
+        $this->assertSame(['clip.mp4', 'bare.mkv'], $result['stamped']);
+        $this->assertSame(['bare.mkv'], $result['created']);
+
+        $this->assertSame('2020-01-02', $this->store->load('clip.mp4')->date);
+        $this->assertFileDoesNotExist($this->dir . DIRECTORY_SEPARATOR . 'bare.mkv.json');
+    }
+
+    public function testRestampLeavesSidecarsWithNoVideoAlone(): void
+    {
+        //the list is the library's videos: an orphan sidecar is not in it
+
+        $this->write('gone.mp4.json', '{"rate":0,"tags":[],"authors":[],"date":"2020-01-02"}');
+
+        $result = $this->migrator->restampDates([], $this->stampOf(['gone.mp4' => '2024-05-06']));
+
+        $this->assertSame(['stamped' => [], 'created' => [], 'skipped' => []], $result);
+        $this->assertSame('2020-01-02', $this->store->load('gone.mp4')->date);
+    }
+
+    public function testRestampIsIdempotent(): void
+    {
+        $stamps = $this->stampOf(['clip.mp4' => '2024-05-06']);
+
+        $this->migrator->restampDates(['clip.mp4'], $stamps);
+        $second = $this->migrator->restampDates(['clip.mp4'], $stamps);
+
+        $this->assertSame(['clip.mp4'], $second['stamped']);
+        $this->assertSame([], $second['created']);
+        $this->assertSame('2024-05-06', $this->store->load('clip.mp4')->date);
+    }
+
     /**
      * A timestamp resolver standing in for the filesystem: video id => date.
      *

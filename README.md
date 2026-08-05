@@ -38,8 +38,9 @@ VPN if it's reachable from anywhere else.
     index.php    the whole browser: grid, filters, tag/author index
     edit.php     per-video player + metadata editor (POST saves, then
                  redirects back to the grid page/filters you came from)
-    migrate.php  CLI one-off: legacy .data sidecars -> .json, and --dates to
-                 stamp dateless sidecars from the filesystem
+    migrate.php  CLI one-off: legacy .data sidecars -> .json, --dates to stamp
+                 dateless sidecars from the filesystem, --restamp to re-date
+                 the whole library (overwrites, so it asks first)
     lib.php      shared page helpers (procedural, escapes all output)
     src/         Meta, MetaStore, VideoLibrary, Migrator, Thumbnailer
                  (PSR-4, unit-tested)
@@ -62,16 +63,18 @@ VPN if it's reachable from anywhere else.
   first comma; without JS the first value still completes).
 - **Sort**: by name or date, ascending/descending; the grid opens on the date,
   latest first. The date is the one stored in the sidecar; videos whose sidecar
-  has none (or that have no sidecar) fall back to the file's mtime, and videos
-  sharing a date keep name order. `Per page` and `Per row` control paging and
+  has none (or that have no sidecar) fall back to the file's creation date —
+  the same date a first save would stamp them with — and videos sharing a date
+  keep name order. `Per page` and `Per row` control paging and
   grid density; narrow windows drop columns automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
   the list of videos that have no metadata yet (each links to its editor).
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
   authors, and the date the grid sorts by (a native datepicker, plus a `Now`
-  checkbox that saves with today's date whatever the picker holds). A video's
-  first save is dated today. Saving writes `data/<filename>.json` and
+  checkbox that saves with today's date whatever the picker holds). A video
+  with no sidecar yet opens on its file's creation date (today if the
+  filesystem has none), which is what a first save takes. Saving writes `data/<filename>.json` and
   redirects back. The player also captures thumbnails — see below.
 
 ## Thumbnails
@@ -111,7 +114,7 @@ render.
 from the filesystem, so it survives copies, moves between disks and restores
 from backup. Accepted: `YYYY-MM-DD`, or with a time as `YYYY-MM-DDTHH:MM[:SS]`
 (a space instead of the `T` is fine too). Anything else is read as "no date"
-and that video falls back to its mtime. The editor works at day precision, so
+and that video falls back to its file's creation date. The editor works at day precision, so
 saving a video whose sidecar carries a time drops it.
 
 ### Migrating a pre-JSON library
@@ -135,6 +138,25 @@ sort by mtime. Stamp them once so the fallback stops mattering:
 
 The date comes from the video file's mtime (the sidecar's own mtime if the
 video is gone), and a sidecar that already has a date is left alone.
+
+### Re-dating a whole library
+
+When the stored dates are wrong across the board, `--restamp` dates every video
+in the library from its **file creation time**, giving a sidecar to the videos
+that have none:
+
+    php migrate.php --restamp --dry-run   # report only
+    php migrate.php --restamp             # warns, then asks before writing
+    php migrate.php --restamp --yes       # skip the prompt (non-interactive)
+
+⚠️ Unlike `--dates`, this **overwrites the date already stored**,
+including dates set by hand in the editor — they can't be recovered, so back up
+`data/` first. Ratings, tags and authors are left untouched, and a sidecar with
+no video behind it is not touched either (there's no file to read a date from).
+
+PHP has no portable creation time: on Windows `filectime()` really is it, while
+on unix it's the inode's last change time, with the mtime as the fallback on
+both.
 
 ## Development
 

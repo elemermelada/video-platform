@@ -247,6 +247,18 @@ final class LibTest extends TestCase
         $this->assertSame(0, videoDate('not-in-the-library.mp4', new Meta(0, [], [])));
     }
 
+    //the date a first save takes: the video file's creation time
+
+    public function testVideoCreatedIsNullWhenThereIsNoFileBehindTheId(): void
+    {
+        $this->assertNull(videoCreated('not-in-the-library.mp4'));
+    }
+
+    public function testDefaultVideoDateFallsBackToTodayWhenTheFileCannotBeRead(): void
+    {
+        $this->assertSame(Meta::today(), defaultVideoDate('not-in-the-library.mp4'));
+    }
+
     //the order the grid lists its matches in: name or date, ascending or not
 
     /** @return array<string, int> */

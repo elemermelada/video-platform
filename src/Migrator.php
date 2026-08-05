@@ -105,4 +105,59 @@ final class Migrator
 
         return ['stamped' => $stamped, 'skipped' => $skipped];
     }
+
+    /**
+     * Date a whole library from the filesystem: every video listed gets a
+     * sidecar (created empty if it had none) and a date, and the date that was
+     * stored before is replaced.
+     *
+     * This is the destructive counterpart to backfillDates(), for a library
+     * whose stored dates are known to be wrong. The caller is expected to have
+     * warned before calling it -- nothing here asks.
+     *
+     * The list is driven by videos rather than by sidecars, so a video with no
+     * metadata yet gets one; a sidecar with no video behind it is not touched,
+     * because there is no file to read a date from.
+     *
+     * @param list<string>           $vids      the videos to date, as the library lists them
+     * @param callable(string): ?int $timestamp video id => unix time, or null when there is nothing to read
+     * @param bool                   $dryRun    report what would happen without touching disk
+     *
+     * @return array{stamped: list<string>, created: list<string>, skipped: list<string>}
+     */
+    public function restampDates(array $vids, callable $timestamp, bool $dryRun = false): array
+    {
+        $stamped = [];
+        $created = [];
+        $skipped = [];
+
+        foreach ($vids as $vid) {
+            $stamp = $timestamp($vid);
+
+            if ($stamp === null) {
+                // Nothing readable behind it: leave whatever is stored alone.
+                $skipped[] = $vid;
+
+                continue;
+            }
+
+            //load() hands back an empty Meta when there is no sidecar, so the
+            //create and the overwrite are the same write
+
+            $isNew = !$this->store->has($vid);
+            $meta = $this->store->load($vid);
+
+            if (!$dryRun) {
+                $this->store->save($vid, $meta->withDate(date(Meta::DATE_FORMAT, $stamp)));
+            }
+
+            if ($isNew) {
+                $created[] = $vid;
+            }
+
+            $stamped[] = $vid;
+        }
+
+        return ['stamped' => $stamped, 'created' => $created, 'skipped' => $skipped];
+    }
 }
