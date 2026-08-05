@@ -46,7 +46,10 @@ function gridParams(): array
         'page' => max(0, (int) ($_GET['p'] ?? 0)),
         'size' => $size > 0 ? $size : 20,
         'cols' => $cols > 0 ? $cols : 4,
-        'order' => ($_GET['o'] ?? '') == 1 ? 1 : 0,
+        //date, latest first, unless the form says otherwise: a library grows
+        //at the end, so what was just added is what the grid should open on
+
+        'order' => ($_GET['o'] ?? '1') == 1 ? 1 : 0,
         'sense' => ($_GET['u'] ?? '') === 'a' ? 'a' : 'd',
         'query' => (string) ($_GET['q'] ?? ''),
         'tag' => (string) ($_GET['tag'] ?? ''),
@@ -509,24 +512,85 @@ function thumbUrl(string $vid): string
 }
 
 /**
+ * When a video file was created, as a unix timestamp, or null when there is
+ * nothing to read (no such file, or the stat failed).
+ *
+ * PHP has no portable creation time: filectime() *is* the creation time on
+ * Windows, which is what this app runs on, while on unix it is the inode's last
+ * change time. The mtime is the fallback either way, so a filesystem that
+ * reports neither gives a null rather than a 1970 date.
+ */
+function videoCreated(string $vid): ?int
+{
+    $path = videoPath($vid);
+
+    if ($path === '' || !is_file($path)) {
+        return null;
+    }
+
+    foreach (array(@filectime($path), @filemtime($path)) as $stamp) {
+        if (is_int($stamp) && $stamp > 0) {
+            return $stamp;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * The date a video's first sidecar is stamped with: when its file was created,
+ * or today when the filesystem has nothing to say.
+ */
+function defaultVideoDate(string $vid): string
+{
+    $stamp = videoCreated($vid);
+
+    return $stamp === null ? Meta::today() : date(Meta::DATE_FORMAT, $stamp);
+}
+
+/**
  * When a video is dated, for the grid's date sort: the date stored in its
- * metadata, falling back to the file's mtime for sidecars written before the
+ * metadata, falling back to the file itself for sidecars written before the
  * field existed (`php migrate.php --dates` stamps those).
+ *
+ * The fallback is the date videoCreated() reads, so an undated video sorts
+ * where a first save from edit.php would put it. One with nothing readable
+ * behind it sorts as the oldest rather than blowing up.
  *
  * @param Meta|null $meta the metadata if the caller has it loaded already
  */
 function videoDate(string $vid, ?Meta $meta = null): int
 {
-    $stored = ($meta ?? loadMeta($vid))->timestamp();
+    return ($meta ?? loadMeta($vid))->timestamp() ?? videoCreated($vid) ?? 0;
+}
 
-    if ($stored !== null) {
-        return $stored;
+/**
+ * The grid's matches in the order the view state asks for.
+ *
+ * The comparison is always ascending -- by name, or by date with the name
+ * behind it so a batch sharing one date keeps a stable order -- and the sense
+ * is applied on top of it. Sorting descending here as well would have the two
+ * cancel out, which is how "Ascending" used to hand back the newest videos.
+ *
+ * @param list<string>                    $vids   in name order, as the library lists them
+ * @param array{order: int, sense: string} $params the view state
+ * @param array<string, int>              $dates  by video id; only read for the date order
+ *
+ * @return list<string>
+ */
+function sortVideos(array $vids, array $params, array $dates = array()): array
+{
+    if ($params['order'] == 1) {
+        usort($vids, function (string $a, string $b) use ($dates) {
+            return array($dates[$a] ?? 0, $a) <=> array($dates[$b] ?? 0, $b);
+        });
     }
 
-    $path = videoPath($vid);
-    $mtime = $path !== '' && is_file($path) ? filemtime($path) : false;
+    if ($params['sense'] == 'd') {
+        $vids = array_reverse($vids);
+    }
 
-    return $mtime === false ? 0 : $mtime;
+    return array_values($vids);
 }
 
 /**

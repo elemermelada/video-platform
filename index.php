@@ -23,24 +23,18 @@ foreach (videoFiles() as $vid) {
     }
 }
 
+$dates = array();
+
 if ($params['order'] == 1) {
     //the date each video carries in its metadata, with its mtime as the
     //fallback: worked out once per video, not once per comparison
 
-    $dates = array();
-
     foreach ($matches as $vid) {
         $dates[$vid] = videoDate($vid, $metas[$vid]);
     }
-
-    usort($matches, function ($a, $b) use ($dates) {
-        return $dates[$b] <=> $dates[$a];
-    });
 }
 
-if ($params['sense'] == 'd') {
-    $matches = array_reverse($matches);
-}
+$matches = sortVideos($matches, $params, $dates);
 
 $page = array_slice($matches, $params['page'] * $params['size'], $params['size']);
 

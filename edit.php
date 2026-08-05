@@ -52,11 +52,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "thumb
 } elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
     $date = (string) ($_POST["date"] ?? "");
 
-    //"Now" overrides whatever the picker holds, and a first save is dated today
-    //so every sidecar written from here on carries a date
+    //"Now" overrides whatever the picker holds, and a first save falls back to
+    //the video file's creation date (today if the filesystem has none), so
+    //every sidecar written from here on carries a date
 
-    if (isset($_POST["now"]) || ($date === "" && !hasMeta($vid))) {
+    if (isset($_POST["now"])) {
         $date = Meta::today();
+    } elseif ($date === "" && !hasMeta($vid)) {
+        $date = defaultVideoDate($vid);
     }
 
     saveMeta($vid, Meta::fromArray([
@@ -76,6 +79,11 @@ renderHead($vid);
 renderBar("edit.php", $back);
 
 $meta = loadMeta($vid);
+
+//a video with no sidecar yet opens on the date its first save would take, so
+//the picker shows what is about to be written instead of an empty box
+
+$dateField = hasMeta($vid) ? $meta->dateOnly() : defaultVideoDate($vid);
 
 echo '
 <video id="player" class="player" controls src="' . escapeHtml(videoUrl($vid)) . '"></video>
@@ -127,7 +135,7 @@ echo '
 <input class="field-rate" type="number" min="0" max="5" name="rate" value="' . $meta->rate . '">
 <input class="tags-field" type="text" name="tags" placeholder="Tags (comma separated)" value="' . escapeHtml(implode(', ', $meta->tags)) . '">
 <input class="tags-field" type="text" name="authors" placeholder="Authors (comma separated)" value="' . escapeHtml(implode(', ', $meta->authors)) . '">
-<input class="field-date" type="date" name="date" title="Date the grid sorts by" value="' . escapeHtml($meta->dateOnly()) . '">
+<input class="field-date" type="date" name="date" title="Date the grid sorts by" value="' . escapeHtml($dateField) . '">
 <label class="check" title="Save with today&#039;s date, whatever the picker holds"><input type="checkbox" name="now" value="1"> Now</label>
 <input type="submit" value="Save">
 </form>
