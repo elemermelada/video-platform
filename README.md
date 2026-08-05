@@ -57,19 +57,25 @@ VPN if it's reachable from anywhere else.
 - **Filter form** (sticky bar): `Search names` is a case-insensitive substring
   match on the filename — it needs no metadata, so a video with no sidecar yet
   is findable too. `Tags` and `Authors` are comma-separated and
-  conjunctive — a video must carry *all* listed values. `Rating ≥` is a
-  floor, not an exact match. Known tags/authors autocomplete via
+  conjunctive — a video must carry *all* listed values — and match without
+  regard to case, so `Action` finds the videos labelled `action`. `Rating ≥` is
+  a floor, not an exact match. Known tags/authors autocomplete via
   `<datalist>` (a small inline script keeps completion working after the
   first comma; without JS the first value still completes).
 - **Sort**: by name or date, ascending/descending; the grid opens on the date,
   latest first. The date is the one stored in the sidecar; videos whose sidecar
   has none (or that have no sidecar) fall back to the file's creation date —
   the same date a first save would stamp them with — and videos sharing a date
-  keep name order. `Per page` and `Per row` control paging and
-  grid density; narrow windows drop columns automatically.
+  keep name order. Name order ignores case, so `apple.mp4` sits next to
+  `Apple.mp4` instead of every capital being herded to the top. `Per page` and
+  `Per row` control paging and grid density; narrow windows drop columns
+  automatically.
 - **Tags & authors** (the `<details>` under the bar, collapsed by default):
   every tag and author with its video count — each re-filters the grid — plus
   the list of videos that have no metadata yet (each links to its editor).
+  Spellings that differ only in case are one entry, counted once and listed
+  under whichever spelling comes first, since filtering does not tell them
+  apart either.
 - **Edit** (`edit.php?vid=<filename>`): rating 0–5, comma-separated tags and
   authors, and the date the grid sorts by (a native datepicker, plus a `Now`
   checkbox that saves with today's date whatever the picker holds). A video

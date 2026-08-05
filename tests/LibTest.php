@@ -195,6 +195,47 @@ final class LibTest extends TestCase
         $this->assertStringContainsString('href="index.php?p=2"', $html);
     }
 
+    //the tag/author index: one row per name, whatever each sidecar capitalised
+
+    public function testCountsListEachNameOnceHoweverItIsSpelled(): void
+    {
+        $metas = [
+            new Meta(0, ['Action', 'noir'], ['Ana']),
+            new Meta(0, ['action'], ['ana']),
+            new Meta(0, ['ACTION', 'noir'], []),
+        ];
+
+        $counts = countNames($metas);
+
+        $this->assertSame(['Action' => 3, 'noir' => 2], $counts['tags']);
+        $this->assertSame(['Ana' => 2], $counts['authors']);
+    }
+
+    public function testCountsAreVideosNotMentions(): void
+    {
+        //one sidecar naming a tag twice still carries it once
+
+        $counts = countNames([new Meta(0, ['action', 'Action'], [])]);
+
+        $this->assertSame(['action' => 1], $counts['tags']);
+    }
+
+    public function testCountsAreListedAsOneAlphabet(): void
+    {
+        $counts = countNames([new Meta(0, ['Zebra', 'apple', 'Banana'], [])]);
+
+        $this->assertSame(['apple', 'Banana', 'Zebra'], array_keys($counts['tags']));
+    }
+
+    public function testCountsSortNumericNamesWithoutTrippingOverTheKeys(): void
+    {
+        //PHP turns "2024" into an integer key on the way into the array
+
+        $counts = countNames([new Meta(0, ['2024', 'noir'], [])]);
+
+        $this->assertSame(['2024', 'noir'], array_map('strval', array_keys($counts['tags'])));
+    }
+
     //the tag/author index, folded into the grid page
 
     public function testIndexPanelListsCountsAndFilterLinks(): void
@@ -297,6 +338,16 @@ final class LibTest extends TestCase
         );
     }
 
+    public function testTheNameTiebreakDoesNotPutCapitalsFirst(): void
+    {
+        $dates = ['Zebra.mp4' => 100, 'apple.mp4' => 100, 'Banana.mp4' => 100];
+
+        $this->assertSame(
+            ['apple.mp4', 'Banana.mp4', 'Zebra.mp4'],
+            sortVideos(['Zebra.mp4', 'apple.mp4', 'Banana.mp4'], ['order' => 1, 'sense' => 'a'], $dates),
+        );
+    }
+
     public function testAnUndatedVideoSortsAsTheOldest(): void
     {
         $this->assertSame(
@@ -386,6 +437,18 @@ final class LibTest extends TestCase
         $meta = new Meta(0, ['action'], []);
 
         $this->assertFalse(matchesFilters($meta, ['tag' => 'act', 'author' => '', 'rate' => '']));
+    }
+
+    public function testTagMatchingIgnoresCapitals(): void
+    {
+        //the tag typed into the filter and the tag on the video are the same
+        //name however either was capitalised
+
+        $meta = new Meta(0, ['action'], ['Ana']);
+
+        $this->assertTrue(matchesFilters($meta, ['tag' => 'Action', 'author' => '', 'rate' => '']));
+        $this->assertTrue(matchesFilters($meta, ['tag' => 'ACTION', 'author' => '', 'rate' => '']));
+        $this->assertTrue(matchesFilters($meta, ['tag' => '', 'author' => 'ana', 'rate' => '']));
     }
 
     //the search box: a substring of the filename, and no metadata needed

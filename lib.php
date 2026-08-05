@@ -13,11 +13,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/src/Meta.php';
 require_once __DIR__ . '/src/MetaStore.php';
 require_once __DIR__ . '/src/Migrator.php';
+require_once __DIR__ . '/src/Names.php';
 require_once __DIR__ . '/src/Thumbnailer.php';
 require_once __DIR__ . '/src/VideoLibrary.php';
 
 use VideoPlatform\Meta;
 use VideoPlatform\MetaStore;
+use VideoPlatform\Names;
 use VideoPlatform\Thumbnailer;
 use VideoPlatform\VideoLibrary;
 
@@ -596,7 +598,7 @@ function sortVideos(array $vids, array $params, array $dates = array()): array
 {
     if ($params['order'] == 1) {
         usort($vids, function (string $a, string $b) use ($dates) {
-            return array($dates[$a] ?? 0, $a) <=> array($dates[$b] ?? 0, $b);
+            return (($dates[$a] ?? 0) <=> ($dates[$b] ?? 0)) ?: Names::compare($a, $b);
         });
     }
 
@@ -665,18 +667,21 @@ function matchesName(string $vid, array $params): bool
  * Several tags (or authors) narrow: a video has to carry all of them. An empty
  * field filters nothing, and the rating is a floor, not an exact match.
  *
+ * A name matches whatever its capitals: the tag "Action" is the tag "action",
+ * so a filter typed by hand finds the videos however they were labelled.
+ *
  * @param array{tag: string, author: string, rate: string, ...} $params
  */
 function matchesFilters(Meta $meta, array $params): bool
 {
     foreach (filterValues($params['tag']) as $tag) {
-        if (!in_array($tag, $meta->tags, true)) {
+        if (!Names::contains($meta->tags, $tag)) {
             return false;
         }
     }
 
     foreach (filterValues($params['author']) as $author) {
-        if (!in_array($author, $meta->authors, true)) {
+        if (!Names::contains($meta->authors, $author)) {
             return false;
         }
     }
@@ -695,22 +700,69 @@ function matchesFilters(Meta $meta, array $params): bool
  */
 function metaCounts(): array
 {
-    $counts = array('tags' => array(), 'authors' => array());
+    $metas = array();
 
     foreach (metaStore()->ids() as $vid) {
-        $meta = loadMeta($vid);
+        $metas[] = loadMeta($vid);
+    }
 
+    return countNames($metas);
+}
+
+/**
+ * How many of these videos carry each tag and each author.
+ *
+ * Spellings that differ only in case are one name, counted once and listed
+ * once: filtering does not tell them apart either, so a second row would link
+ * to the same videos under a total that disagreed with it. The first spelling
+ * offered is the one shown.
+ *
+ * @param list<Meta> $metas
+ *
+ * @return array{tags: array<string, int>, authors: array<string, int>}
+ */
+function countNames(array $metas): array
+{
+    $counts = array('tags' => array(), 'authors' => array());
+
+    //by folded key while counting, so the shown spelling can stay whatever the
+    //first sidecar called it
+
+    $shown = array('tags' => array(), 'authors' => array());
+
+    foreach ($metas as $meta) {
         $values = array('tags' => $meta->tags, 'authors' => $meta->authors);
 
         foreach ($values as $field => $names) {
+            //a count is videos, not mentions: a sidecar that lists a name twice
+            //(or twice over, in two capitalisations) still carries it once
+
+            $seen = array();
+
             foreach ($names as $name) {
+                $key = Names::key($name);
+
+                if (isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+                $name = $shown[$field][$key] ??= $name;
+
                 $counts[$field][$name] = ($counts[$field][$name] ?? 0) + 1;
             }
         }
     }
 
-    ksort($counts['tags']);
-    ksort($counts['authors']);
+    //a name that reads as a number is an integer key by the time it is in the
+    //array, so the comparator is handed strings rather than tripping over one
+
+    $order = function (int|string $a, int|string $b): int {
+        return Names::compare((string) $a, (string) $b);
+    };
+
+    uksort($counts['tags'], $order);
+    uksort($counts['authors'], $order);
 
     return $counts;
 }

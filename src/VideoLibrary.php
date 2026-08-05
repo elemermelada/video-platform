@@ -44,7 +44,8 @@ final class VideoLibrary
     }
 
     /**
-     * Every video file in the library, by name, sorted.
+     * Every video file in the library, by name: capitals are not sorted apart
+     * from the same letter in lowercase, so the list reads as one alphabet.
      *
      * @return list<string>
      */
@@ -60,9 +61,7 @@ final class VideoLibrary
             }
         }
 
-        sort($names);
-
-        return $names;
+        return Names::sort($names);
     }
 
     /**
