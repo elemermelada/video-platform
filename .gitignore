@@ -9,3 +9,8 @@
 
 /thumbs/*
 !/thumbs/err.png
+
+# the metadata the app writes about that library, not the app either
+
+/data/*
+!/data/.gitkeep
