@@ -276,6 +276,118 @@ final class MigratorTest extends TempDirTestCase
         $this->assertSame('2024-05-06', $this->store->load('clip.mp4')->date);
     }
 
+    //the poison clean-up: sidecars carrying exactly one bad batch's metadata
+
+    public function testClearEmptiesTagsAndAuthorsOfAnExactMatch(): void
+    {
+        $this->write('bad.mp4.json', '{"rate":3,"tags":["auto","import"],"authors":["bot"],"date":"2024-05-06"}');
+
+        $result = $this->migrator->clearPoisoned(['auto', 'import'], ['bot']);
+
+        $this->assertSame(['bad.mp4'], $result['cleared']);
+        $this->assertSame([], $result['skipped']);
+
+        $meta = $this->store->load('bad.mp4');
+        $this->assertSame([], $meta->tags);
+        $this->assertSame([], $meta->authors);
+
+        //no rating was given to match on, so the one stored is not the batch's
+
+        $this->assertSame(3, $meta->rate);
+
+        //the date says when the video arrived, not what the batch thought
+
+        $this->assertSame('2024-05-06', $meta->date);
+    }
+
+    public function testClearIgnoresOrderAndRepetition(): void
+    {
+        $this->write('bad.mp4.json', '{"rate":0,"tags":["import","auto","auto"],"authors":["bot"]}');
+
+        $result = $this->migrator->clearPoisoned(['auto', 'import'], ['bot', 'bot']);
+
+        $this->assertSame(['bad.mp4'], $result['cleared']);
+        $this->assertSame([], $this->store->load('bad.mp4')->tags);
+    }
+
+    public function testClearLeavesSidecarsCarryingAnythingExtraAlone(): void
+    {
+        //all the listed tags and one more: somebody has worked on this one since
+
+        $this->write('worked.mp4.json', '{"rate":3,"tags":["auto","import","scifi"],"authors":["bot"]}');
+        $this->write('fewer.mp4.json', '{"rate":3,"tags":["auto"],"authors":["bot"]}');
+        $this->write('author.mp4.json', '{"rate":3,"tags":["auto","import"],"authors":["bot","ana"]}');
+
+        $result = $this->migrator->clearPoisoned(['auto', 'import'], ['bot']);
+
+        $this->assertSame([], $result['cleared']);
+        $this->assertSame(['author.mp4', 'fewer.mp4', 'worked.mp4'], $result['skipped']);
+        $this->assertSame(['auto', 'import', 'scifi'], $this->store->load('worked.mp4')->tags);
+    }
+
+    public function testClearMatchesTheRatingWhenOneIsGivenAndZeroesIt(): void
+    {
+        $this->write('bad.mp4.json', '{"rate":3,"tags":["auto"],"authors":["bot"]}');
+        $this->write('rated.mp4.json', '{"rate":5,"tags":["auto"],"authors":["bot"]}');
+
+        $result = $this->migrator->clearPoisoned(['auto'], ['bot'], 3);
+
+        $this->assertSame(['bad.mp4'], $result['cleared']);
+        $this->assertSame(['rated.mp4'], $result['skipped']);
+
+        $this->assertSame(0, $this->store->load('bad.mp4')->rate);
+        $this->assertSame(5, $this->store->load('rated.mp4')->rate);
+    }
+
+    public function testClearCanSelectSidecarsWithNoTagsOrAuthorsAtAll(): void
+    {
+        //the empty lists are a selector like any other: rate 1 and nothing else
+
+        $this->write('bare.mp4.json', '{"rate":1,"tags":[],"authors":[]}');
+        $this->write('tagged.mp4.json', '{"rate":1,"tags":["keep"],"authors":[]}');
+
+        $result = $this->migrator->clearPoisoned([], [], 1);
+
+        $this->assertSame(['bare.mp4'], $result['cleared']);
+        $this->assertSame(['tagged.mp4'], $result['skipped']);
+        $this->assertSame(0, $this->store->load('bare.mp4')->rate);
+        $this->assertSame(['keep'], $this->store->load('tagged.mp4')->tags);
+    }
+
+    public function testClearIsCaseSensitiveLikeTheGridFilters(): void
+    {
+        $this->write('bad.mp4.json', '{"rate":0,"tags":["Auto"],"authors":["bot"]}');
+
+        $result = $this->migrator->clearPoisoned(['auto'], ['bot']);
+
+        $this->assertSame([], $result['cleared']);
+        $this->assertSame(['Auto'], $this->store->load('bad.mp4')->tags);
+    }
+
+    public function testClearDryRunWritesNothing(): void
+    {
+        $this->write('bad.mp4.json', '{"rate":3,"tags":["auto"],"authors":["bot"]}');
+
+        $result = $this->migrator->clearPoisoned(['auto'], ['bot'], 3, dryRun: true);
+
+        $this->assertSame(['bad.mp4'], $result['cleared']);
+
+        $meta = $this->store->load('bad.mp4');
+        $this->assertSame(['auto'], $meta->tags);
+        $this->assertSame(3, $meta->rate);
+    }
+
+    public function testClearLeavesLegacyOnlySidecarsToTheMigration(): void
+    {
+        //no `.json` yet, so there is nothing to clear: migrate() first
+
+        $this->write('bad.mp4.data', '3:auto;bot;');
+
+        $result = $this->migrator->clearPoisoned(['auto'], ['bot'], 3);
+
+        $this->assertSame(['cleared' => [], 'skipped' => []], $result);
+    }
+
     /**
      * A timestamp resolver standing in for the filesystem: video id => date.
      *
