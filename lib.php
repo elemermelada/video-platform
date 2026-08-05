@@ -311,13 +311,22 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 .index .list { max-height: 40vh; overflow-y: auto; font-size: 0.9rem; }
 
 .player { display: block; width: 100%; max-height: 70vh; background: #000000; }
-.edit-form { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--gap) 0; }
+
+/* one form carries both the thumbnail panel and the metadata fields, so
+   capturing a frame submits the half-filled fields along and the redraw can
+   put them back. The panel is written after the fields and pulled above them
+   here: the first submit button in the markup is the one Enter presses, and
+   that has to be Save rather than the capture. */
+
+.edit-form { display: flex; flex-direction: column; align-items: stretch; gap: var(--gap); margin: var(--gap) 0; }
+.edit-form .fields { display: flex; flex-wrap: wrap; gap: 6px; }
 .edit-form .tags-field { flex: 1 1 16em; }
 .edit-form .check { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 
 /* the thumbnail panel under the player: capture button, message, preview */
 
-.thumb-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: var(--gap) 0; }
+.thumb-panel { order: -1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.thumb-panel p { margin: 0; }
 
 .notice {
 	padding: 6px 8px;
@@ -329,6 +338,11 @@ input[type="submit"]:hover { border-color: var(--accent); color: var(--accent); 
 }
 
 .notice.bad { border-color: var(--accent); color: var(--accent); }
+
+/* no thumbnail captured yet: the box is there for the script to fill, and
+   until it does it should not push the fields down */
+
+.thumb-preview:empty { display: none; }
 
 .thumb-preview img {
 	display: block;
@@ -931,6 +945,55 @@ function renderIndexPanel(array $counts, array $missing): string
 </div>
 </details>
 ';
+}
+
+/**
+ * The values the edit form's fields are drawn with.
+ *
+ * A request that carried the form wins over what is on disk, so redrawing the
+ * page after a capture — or after one that failed — puts back exactly what was
+ * typed, down to the spacing, instead of rolling the fields back to the
+ * sidecar. Anything else (arriving on the page, coming back from a save) is
+ * drawn from the stored metadata.
+ *
+ * @param array<string, mixed> $post
+ * @param string               $date the value the picker opens on when the request carried no form:
+ *                                   the stored date, or the one a first save would stamp
+ *
+ * @return array{rate: string, tags: string, authors: string, date: string, now: bool}
+ */
+function editFormFields(array $post, Meta $meta, string $date): array
+{
+    if (($post['form'] ?? '') !== 'edit') {
+        return array(
+            'rate' => (string) $meta->rate,
+            'tags' => implode(', ', $meta->tags),
+            'authors' => implode(', ', $meta->authors),
+            'date' => $date,
+            'now' => false,
+        );
+    }
+
+    return array(
+        'rate' => postedField($post, 'rate'),
+        'tags' => postedField($post, 'tags'),
+        'authors' => postedField($post, 'authors'),
+        'date' => postedField($post, 'date'),
+        'now' => isset($post['now']),
+    );
+}
+
+/**
+ * One posted field as a string. A field a caller sent as an array (or left
+ * out) is no field at all rather than a warning or the word "Array".
+ *
+ * @param array<string, mixed> $post
+ */
+function postedField(array $post, string $name): string
+{
+    $value = $post[$name] ?? '';
+
+    return is_scalar($value) ? (string) $value : '';
 }
 
 /**

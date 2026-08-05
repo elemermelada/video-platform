@@ -468,4 +468,68 @@ final class LibTest extends TestCase
         $this->assertStringNotContainsString('<datalist', $html);
         $this->assertStringNotContainsString(' list="', $html);
     }
+
+    public function testEditFormShowsTheStoredMetadataWhenNothingWasPosted(): void
+    {
+        $meta = new Meta(3, ['action', 'demo'], ['ana'], '2024-05-06');
+
+        $this->assertSame(
+            ['rate' => '3', 'tags' => 'action, demo', 'authors' => 'ana', 'date' => '2024-05-06', 'now' => false],
+            editFormFields([], $meta, $meta->dateOnly()),
+        );
+    }
+
+    public function testEditFormDateFallsBackWhenThereIsNoSidecarYet(): void
+    {
+        $fields = editFormFields([], Meta::empty(), '2020-01-01');
+
+        $this->assertSame('2020-01-01', $fields['date']);
+    }
+
+    public function testEditFormKeepsWhatWasPostedRatherThanWhatIsStored(): void
+    {
+        //what a capture posts along: the fields as they were typed, unsaved
+
+        $post = [
+            'form' => 'edit',
+            'thumb' => 'Use current frame as thumbnail',
+            'rate' => '5',
+            'tags' => 'noir, heist,',
+            'authors' => '',
+            'date' => '2025-02-03',
+            'now' => '1',
+        ];
+
+        $this->assertSame(
+            ['rate' => '5', 'tags' => 'noir, heist,', 'authors' => '', 'date' => '2025-02-03', 'now' => true],
+            editFormFields($post, new Meta(1, ['old'], ['ana'], '2024-05-06'), '2020-01-01'),
+        );
+    }
+
+    public function testEditFormKeepsAnEmptiedFieldEmptiedInsteadOfRefillingIt(): void
+    {
+        $post = ['form' => 'edit', 'rate' => '0', 'tags' => '', 'authors' => '', 'date' => ''];
+
+        $fields = editFormFields($post, new Meta(4, ['action'], ['ana'], '2024-05-06'), '2020-01-01');
+
+        $this->assertSame('', $fields['tags']);
+        $this->assertSame('', $fields['date']);
+        $this->assertSame('0', $fields['rate']);
+    }
+
+    public function testEditFormTakesNoFieldFromRequestsThatDidNotCarryTheForm(): void
+    {
+        //a stray "rate" on a request that is not the form is not the form
+
+        $fields = editFormFields(['rate' => '5'], new Meta(2, [], [], null), '2020-01-01');
+
+        $this->assertSame('2', $fields['rate']);
+    }
+
+    public function testEditFormIgnoresFieldsSentAsArrays(): void
+    {
+        $fields = editFormFields(['form' => 'edit', 'tags' => ['a', 'b']], Meta::empty(), '');
+
+        $this->assertSame('', $fields['tags']);
+    }
 }

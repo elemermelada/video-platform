@@ -83,7 +83,12 @@ VPN if it's reachable from anywhere else.
 to the frame you want and press **Use current frame as thumbnail**. It runs
 ffmpeg, writes `thumbs/<video filename>.png` and shows the result under the
 player. Capture is synchronous, so a large file can take a few seconds.
-Without JavaScript the button still works and takes the first frame.
+
+Capturing is not saving: it writes the PNG and nothing else, and the metadata
+fields keep whatever you have typed into them. The page never navigates — the
+capture goes out over `fetch()` and only the preview under the player changes.
+Without JavaScript the button still works, takes the first frame, and posts the
+fields along so the redrawn page puts them back as you left them.
 
 ffmpeg is optional. It's looked for on `PATH`, and the button is replaced by a
 note when it isn't there. Where it isn't on `PATH` (XAMPP on Windows, mostly),
